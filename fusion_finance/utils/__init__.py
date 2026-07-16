@@ -1,1 +1,2 @@
-"""Fusion-Finance 工具函数。"""
+from .audit import AuditTrail, AuditEntry
+__all__ = ["AuditTrail", "AuditEntry"]
