@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company }} — 深度投研报告</title>
+<style>
+  :root { --bg: #0f0f1a; --card: #1a1a2e; --accent: #6c5ce7; --green: #2ecc71; --red: #e74c3c; --text: #e0e0e0; --muted: #888; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.8; }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 28px; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 12px; margin-bottom: 8px; }
+  .meta { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  h2 { font-size: 20px; color: var(--accent); margin: 32px 0 12px; }
+  h3 { font-size: 16px; color: #a29bfe; margin: 20px 0 8px; }
+  .card { background: var(--card); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 8px 0 12px 20px; }
+  li { margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #2a2a3e; }
+  th { color: var(--accent); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .content-body { white-space: pre-wrap; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #2a2a3e; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>{{ company }} 深度投研报告</h1>
+  <div class="meta">行业: {{ industry }} | 生成日期: {{ date }} | 由 Fusion-Finance AI 生成</div>
+
+  <div class="content-body">{{ body }}</div>
+
+  {% if chart_svg %}
+  <div style="margin: 16px 0;">{{ chart_svg }}</div>
+  {% endif %}
+
+  {% if tables %}
+  {% for tbl in tables %}
+  <h3>{{ tbl.title }}</h3>
+  <div class="card">
+    <table>
+      <thead><tr>
+        {% for col in tbl.columns %}
+        <th>{{ col }}</th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for row in tbl.rows %}
+        <tr>
+          {% for cell in row %}
+          <td class="num">{{ cell }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <div class="footer">由 Fusion-Finance AI 于 {{ timestamp }} 自动生成 | 仅供内部参考</div>
+</div>
+</body>
+</html>

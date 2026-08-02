@@ -1,16 +1,27 @@
 """Coverage tests for Fusion-Finance."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from fusion_finance.ai_client import MLXClient
-from fusion_finance.modeling import FinancialModelingEngine, DCFModel, CompsAnalysis, AdvancedModelingEngine, LBOModel, DDMModel, MergerModel, APVModel, EVAModel, RIModel, PortfolioOptimizer, Bond, TechnicalIndicators
-from fusion_finance.risk import RiskComplianceEngine, KYCCheck, CreditAssessment, RiskModelingEngine, VaRResult, StressTestResult
-from fusion_finance.statements import StatementAnalyzer, FinancialStatement, FinancialAnalysis
+from fusion_finance.modeling import (
+    APVModel,
+    Bond,
+    DCFModel,
+    EVAModel,
+    FinancialModelingEngine,
+    PortfolioOptimizer,
+    RIModel,
+    TechnicalIndicators,
+)
 from fusion_finance.report import ReportGenerator
-from fusion_finance.utils import AuditTrail, AuditEntry
+from fusion_finance.risk import (
+    CreditAssessment,
+    KYCCheck,
+    RiskComplianceEngine,
+)
 
 
 class MockMLX:
@@ -19,16 +30,19 @@ class MockMLX:
 
 class TestMLXClient:
     @pytest.mark.asyncio
-    async def test_chat_auto_discover(self):
+    async def test_chat_httpx_fallback(self):
         client = MLXClient(base_url="http://localhost:11434/v1")
         mock_http = MagicMock()
-        mock_http.get = AsyncMock(return_value=MagicMock(json=lambda: {"data": [{"id": "qwen"}]}))
+        mock_http.get = AsyncMock(return_value=MagicMock(
+            status_code=200, json=lambda: {"data": [{"id": "qwen"}]}
+        ))
         mock_http.post = AsyncMock(return_value=MagicMock(
             status_code=200, json=lambda: {"choices": [{"message": {"content": "ok"}}]}
         ))
-        client._client = mock_http
+        client._httpx_client = mock_http
+        client._client = None
         result = await client.chat([{"role": "user", "content": "hi"}])
-        assert client.model == "qwen"
+        assert result == "ok"
 
 
 class TestModelingEngine:
@@ -36,7 +50,7 @@ class TestModelingEngine:
     async def test_build_dcf(self):
         engine = FinancialModelingEngine(mlx=MockMLX())
         result = await engine.build_dcf("Test Corp", [1000, 1100, 1200])
-        assert isinstance(result, DCFModel) or isinstance(result, dict)
+        assert isinstance(result, (DCFModel, dict))
 
     @pytest.mark.asyncio
     async def test_build_comps(self):

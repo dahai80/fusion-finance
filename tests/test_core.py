@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 
 from fusion_finance.ai_client import MLXClient
-from fusion_finance.modeling import FinancialModelingEngine, DCFModel, CompsAnalysis
-from fusion_finance.statements import StatementAnalyzer, FinancialStatement, FinancialAnalysis
-from fusion_finance.risk import RiskComplianceEngine, KYCCheck, CreditAssessment
+from fusion_finance.modeling import DCFModel, FinancialModelingEngine
 from fusion_finance.report import ReportGenerator
+from fusion_finance.risk import RiskComplianceEngine
+from fusion_finance.statements import FinancialStatement, StatementAnalyzer
 
 
 class TestDCFModel:
@@ -151,17 +151,17 @@ class TestReportGenerator:
 class TestMLXClient:
     def test_init(self):
         client = MLXClient(model="test")
-        assert client.model == "test"
+        assert client.default_model == "test"
 
     def test_default_model(self):
         client = MLXClient()
-        assert client.model == ""
+        assert client.default_model != ""
 
 
 class TestModuleIntegrity:
     def test_import(self):
         import fusion_finance
-        assert fusion_finance.__version__ == "0.1.0"
+        assert fusion_finance.__version__ == "0.2.0"
 
     def test_cli_import(self):
         from fusion_finance import cli

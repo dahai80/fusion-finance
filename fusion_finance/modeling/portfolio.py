@@ -5,15 +5,14 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
 
 
 @dataclass
 class Portfolio:
-    assets: List[str] = field(default_factory=list)
-    weights: List[float] = field(default_factory=list)
-    returns: List[float] = field(default_factory=list)
-    volatilities: List[float] = field(default_factory=list)
+    assets: list[str] = field(default_factory=list)
+    weights: list[float] = field(default_factory=list)
+    returns: list[float] = field(default_factory=list)
+    volatilities: list[float] = field(default_factory=list)
     portfolio_return: float = 0.0
     portfolio_volatility: float = 0.0
     sharpe_ratio: float = 0.0

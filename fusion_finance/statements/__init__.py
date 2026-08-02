@@ -1,2 +1,3 @@
-from .analyzer import StatementAnalyzer, FinancialStatement, FinancialAnalysis
+from .analyzer import FinancialAnalysis, FinancialStatement, StatementAnalyzer
+
 __all__ = ["StatementAnalyzer", "FinancialStatement", "FinancialAnalysis"]

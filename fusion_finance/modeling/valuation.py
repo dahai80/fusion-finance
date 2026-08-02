@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
 class APVModel:
     """APV 调整现值模型 — 区分业务价值与税盾价值。"""
     company: str = ""
-    unlevered_fcf: List[float] = field(default_factory=list)
+    unlevered_fcf: list[float] = field(default_factory=list)
     unlevered_cost: float = 0.10
     debt: float = 0.0
     tax_rate: float = 0.25
@@ -19,7 +19,7 @@ class APVModel:
     enterprise_value: float = 0.0
     tax_shield_value: float = 0.0
 
-    def calculate(self) -> Dict[str, float]:
+    def calculate(self) -> dict[str, float]:
         if not self.unlevered_fcf:
             return {"error": "请先输入无杠杆自由现金流"}
         pv_fcf = sum(self.unlevered_fcf[i] / (1 + self.unlevered_cost) ** (i + 1) for i in range(len(self.unlevered_fcf)))
@@ -36,13 +36,13 @@ class APVModel:
 class EVAModel:
     """EVA 经济增加值模型 — 衡量真实经济利润。"""
     company: str = ""
-    nopat: List[float] = field(default_factory=list)
-    invested_capital: List[float] = field(default_factory=list)
+    nopat: list[float] = field(default_factory=list)
+    invested_capital: list[float] = field(default_factory=list)
     wacc: float = 0.10
-    eva_values: List[float] = field(default_factory=list)
+    eva_values: list[float] = field(default_factory=list)
     total_eva: float = 0.0
 
-    def calculate(self) -> Dict[str, Any]:
+    def calculate(self) -> dict[str, Any]:
         if not self.nopat or not self.invested_capital:
             return {"error": "请先输入NOPAT和投入资本"}
         self.eva_values = []
@@ -60,12 +60,12 @@ class RIModel:
     """RI 剩余收益模型 — 用于股权估值。"""
     company: str = ""
     book_value: float = 0.0
-    net_income: List[float] = field(default_factory=list)
+    net_income: list[float] = field(default_factory=list)
     cost_of_equity: float = 0.12
-    residual_income: List[float] = field(default_factory=list)
+    residual_income: list[float] = field(default_factory=list)
     fair_value: float = 0.0
 
-    def calculate(self) -> Dict[str, float]:
+    def calculate(self) -> dict[str, float]:
         if not self.net_income:
             return {"error": "请先输入净利润预测"}
         self.residual_income = []
