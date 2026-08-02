@@ -61,6 +61,19 @@ fusion_finance/
 │   └── advanced_risk.py  # RiskModelingEngine, VaRResult, StressTestResult (pure math)
 ├── report/
 │   └── reports.py        # ReportGenerator — Markdown report templates + AI research
+├── copilot/
+│   ├── engine.py         # CopilotEngine, ToolRegistry, ConversationMemory
+│   └── prompts.py        # Scenario prompts (5), insight prompts (3), build_system_prompt()
+├── chart/
+│   ├── renderer.py       # ChartRenderer facade
+│   ├── heatmap.py        # render_heatmap()
+│   ├── candlestick.py    # render_candlestick()
+│   ├── waterfall.py      # render_waterfall()
+│   └── sensitivity.py    # render_sensitivity_tornado()
+├── api/
+│   ├── app.py            # FastAPI app with middleware stack
+│   ├── middleware.py      # AuditMiddleware, RateLimitMiddleware, APIKeyMiddleware
+│   └── sse.py            # EventBus, SSE routes (/events/insights, /events/alerts)
 └── utils/
     └── audit.py          # AuditTrail — JSONL-based audit logging to ~/.fusion/finance/
 ```
@@ -101,5 +114,6 @@ Pure math (no AI needed, runs offline):
 ## Test Conventions
 
 - Two test files: `test_core.py` (core engine/model tests) and `test_coverage.py` (advanced models, portfolio, bond, technical indicators)
+- Additional: `test_phase2.py` (copilot, chart, data), `test_phase3.py` (report templates, project, audit), `test_phase3plus.py` (prompts, middleware, SSE, chart modules)
 - AI-dependent tests use `MockMLX` with `chat = AsyncMock(return_value='{"test":"ok"}')` — they don't require fusion-mlx running
 - Pure math tests call `.calculate()` directly

@@ -7,7 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..config import ensure_dirs, setup_logging
+from .middleware import APIKeyMiddleware, AuditMiddleware, RateLimitMiddleware
 from .routes import audit, chart, copilot, data, health, modeling, project, report, risk, statements, ws
+from .sse import router as sse_router
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(AuditMiddleware)
+    app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
+    app.add_middleware(APIKeyMiddleware, api_key="")
 
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
     app.include_router(modeling.router, prefix="/api/v1/modeling", tags=["modeling"])
@@ -47,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(project.router, prefix="/api/v1/project", tags=["project"])
     app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
     app.include_router(audit.router, prefix="/api/v1/audit", tags=["audit"])
+    app.include_router(sse_router, prefix="/events", tags=["sse"])
     app.include_router(ws.router, prefix="/ws", tags=["websocket"])
 
     return app

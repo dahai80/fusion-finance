@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/Offline-First-important" alt="Offline">
-  <img src="https://img.shields.io/badge/tests-142%20passed-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-175%20passed-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/API-FastAPI-blue" alt="API">
 </p>
 
@@ -77,7 +77,7 @@ fusion-finance serve --port 8200
 
 ## 🌐 API Server
 
-Fusion-Finance v0.2.1 adds **report templates & multi-format export**, **project management with version control**, and **enhanced audit with structured query & statistics**.
+Fusion-Finance v0.2.1 adds **report templates & multi-format export**, **project management with version control**, **enhanced audit with structured query & statistics**, **copilot scenario/insight prompts**, **API middleware (audit/rate-limit/auth)**, **SSE event streaming**, and **modular chart rendering**.
 
 ### Start / Stop
 
@@ -104,6 +104,7 @@ Fusion-Finance v0.2.1 adds **report templates & multi-format export**, **project
 | `/api/v1/data` | Data | import, validate balance, validate completeness, cache |
 | `/api/v1/audit` | Audit | record, query, stats, file-stats |
 | `/ws` | WebSocket | `/ws/copilot` streaming chat, `/ws/modeling/progress` |
+| `/events` | SSE | `/events/insights`, `/events/alerts` streams, `/events/publish` |
 
 ### Example API Calls
 
@@ -187,16 +188,18 @@ Swagger docs: `http://localhost:8200/docs`
 | `ConversationMemory` | Session-based memory (max 50 msgs, 100 sessions) |
 | `chat()` | Full copilot chat with tool execution |
 | `chat_stream()` | AsyncIterator for WebSocket streaming |
+| Scenario Prompts | 5 scenario-aware system prompts (modeling, risk, report, statements, data) |
+| Insight Prompts | Proactive detection (valuation_alert, risk_alert, data_alert) |
 
 ### 6. Chart Rendering (`chart/`)
 
 | Component | Description |
 |-----------|-------------|
-| `ChartRenderer` | SVG chart rendering engine |
-| `candlestick()` | K-line (OHLCV) chart |
-| `heatmap()` | Sensitivity matrix heatmap |
-| `waterfall()` | Bridge/waterfall chart |
-| `sensitivity_tornado()` | Tornado chart for sensitivity analysis |
+| `ChartRenderer` | SVG chart rendering engine (facade) |
+| `render_candlestick()` | K-line (OHLCV) chart (standalone module) |
+| `render_heatmap()` | Sensitivity matrix heatmap (standalone module) |
+| `render_waterfall()` | Bridge/waterfall chart (standalone module) |
+| `render_sensitivity_tornado()` | Tornado chart for sensitivity analysis (standalone module) |
 
 ### 7. Data Adapter (`data/`)
 
@@ -222,7 +225,17 @@ Swagger docs: `http://localhost:8200/docs`
 | `VersionControl` | SHA256 hashing, diff/patch, cherry-pick, history summary |
 | `ProjectExporter` | JSON/ZIP export and import |
 
-### 9. Configuration (`config.py`)
+### 10. API Middleware & SSE (`api/`)
+
+| Component | Description |
+|-----------|-------------|
+| `AuditMiddleware` | Auto-records every request to AuditTrail |
+| `RateLimitMiddleware` | Per-IP sliding window rate limiting |
+| `APIKeyMiddleware` | API key authentication with exempt paths |
+| `EventBus` | Pub/sub event bus for SSE streaming |
+| SSE Routes | `/events/insights`, `/events/alerts`, `/events/publish` |
+
+### 11. Configuration (`config.py`)
 
 | Setting | Default | Env Var |
 |---------|---------|---------|
@@ -241,12 +254,17 @@ Swagger docs: `http://localhost:8200/docs`
 │                 CLI / API Server                               │
 │   Click CLI (fusion-finance)  │  FastAPI (localhost:8200)     │
 ├───────────────────────────────────────────────────────────────┤
+│               API Middleware & SSE                             │
+│  AuditMiddleware │ RateLimitMiddleware │ APIKeyMiddleware      │
+│  EventBus + SSE (insights / alerts streams)                   │
+├───────────────────────────────────────────────────────────────┤
 │                    Engine Layer                                │
 │  FinancialModeling │ StatementAnalyzer │ RiskCompliance        │
 │  AdvancedModeling  │ RiskModelingEngine │ ReportGenerator       │
 │  ReportFormatter   │ ProjectManager     │ VersionControl        │
 │  InteractiveDCF    │ ScenarioManager    │ CopilotEngine         │
 │  ChartRenderer     │ DataAdapter        │ ConversationMemory    │
+│  Copilot Prompts   │ Chart Modules (4)                          │
 ├───────────────────────────────────────────────────────────────┤
 │                 AI Backend (fusion-mlx)                        │
 │  HTTP → http://localhost:11434/v1/chat/completions            │
@@ -287,6 +305,7 @@ pytest tests/test_api.py -v                   # API endpoint tests
 pytest tests/test_coverage.py -v              # Advanced model tests
 pytest tests/test_phase2.py -v               # Phase 2: copilot, chart, data
 pytest tests/test_phase3.py -v               # Phase 3: report templates, project, audit
+pytest tests/test_phase3plus.py -v          # Phase 3+: prompts, middleware, SSE, chart modules
 pytest tests/ --cov=fusion_finance --cov-report=html
 ```
 
@@ -331,7 +350,7 @@ MIT License. See [LICENSE](LICENSE) for details.
   <img src="https://img.shields.io/badge/license-MIT-green" alt="许可证">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/离线优先-核心特性-important" alt="离线优先">
-  <img src="https://img.shields.io/badge/测试-142%20通过-brightgreen" alt="测试">
+  <img src="https://img.shields.io/badge/测试-175%20通过-brightgreen" alt="测试">
   <img src="https://img.shields.io/badge/API-FastAPI-blue" alt="API">
 </p>
 
@@ -341,7 +360,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
-v0.2.1 新增：**Jinja2 报告模板与多格式导出**、**项目管理与版本控制**、**增强审计日志（结构化查询与统计）**。
+v0.2.1 新增：**Jinja2 报告模板与多格式导出**、**项目管理与版本控制**、**增强审计日志（结构化查询与统计）**、**Copilot 场景/洞察提示词**、**API 中间件（审计/限流/认证）**、**SSE 事件流**、**图表模块化渲染**。
 
 ### 快速开始
 
@@ -380,11 +399,12 @@ API 文档：`http://localhost:8200/docs`
 | 📋 **财报分析** | 指标计算/勾稽校验/AI 分析 | 10+ 财务指标 |
 | 🛡️ **风控合规** | KYC/信用评估/VaR/压力测试 | 4 大风控模型 |
 | 📄 **报告生成** | 估值报告/PitchBook/投研报告/董事会材料 | 4 种模板 + 6 种格式导出 |
-| 🤖 **AI Copilot** | 自然语言交互/工具调用 | ReAct 模式 + 12 工具 |
-| 📈 **图表渲染** | K线/热力图/瀑布图/龙卷风图 | SVG 渲染引擎 |
+| 🤖 **AI Copilot** | 自然语言交互/工具调用/场景提示 | ReAct 模式 + 12 工具 + 5 场景 |
+| 📈 **图表渲染** | K线/热力图/瀑布图/龙卷风图 | 模块化 SVG 渲染 |
 | 📥 **数据适配** | CSV导入/验证/缓存 | LRU + TTL 缓存 |
 | 🔍 **审计日志** | 操作记录/查询/统计 | JSONL 持久化 + 结构化查询 |
 | 📁 **项目管理** | CRUD/快照/版本/导出 | SHA256 版本控制 + ZIP 导出 |
+| 🔐 **API 中间件** | 审计/限流/认证/SSE 事件流 | 自动审计记录 + 实时推送 |
 
 ### 测试
 

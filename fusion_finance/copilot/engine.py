@@ -8,6 +8,7 @@ from typing import Any
 from ..ai_client import MLXClient
 from ..utils.parse_json import parse_json
 from .memory import ConversationMemory
+from .prompts import build_system_prompt
 from .tools import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -16,17 +17,14 @@ MAX_TOOL_ROUNDS = 3
 
 
 class CopilotEngine:
-    def __init__(self, mlx: MLXClient | None = None, registry: ToolRegistry | None = None):
+    def __init__(self, mlx: MLXClient | None = None, registry: ToolRegistry | None = None, scenario: str = ""):
         self.mlx = mlx or MLXClient()
         self.registry = registry or ToolRegistry()
         self.memory = ConversationMemory()
+        self.scenario = scenario
 
     def _build_system_prompt(self) -> str:
-        return (
-            "你是Fusion-Finance AI助手，专业的金融分析Copilot。\n"
-            "你可以帮助用户进行估值建模、风险分析、财务报表分析等任务。\n\n"
-            + self.registry.format_prompt()
-        )
+        return build_system_prompt(scenario=self.scenario, tool_prompt=self.registry.format_prompt())
 
     async def chat(self, message: str, session_id: str = "default", history: list[dict[str, str]] | None = None) -> dict[str, Any]:
         self.memory.add_message(session_id, "user", message)
