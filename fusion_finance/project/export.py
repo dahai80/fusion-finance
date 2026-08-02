@@ -47,7 +47,9 @@ class ProjectExporter:
                     version_json = json.dumps(v, ensure_ascii=False, indent=2, default=str)
                     zf.writestr(f"versions/v{v.get('version', i + 1)}.json", version_json)
                 if proj.current_data:
-                    zf.writestr("current_data.json", json.dumps(proj.current_data, ensure_ascii=False, indent=2, default=str))
+                    zf.writestr(
+                        "current_data.json", json.dumps(proj.current_data, ensure_ascii=False, indent=2, default=str)
+                    )
             logger.info("Exported project %s to ZIP: %s", project_id, path)
             return str(path)
         except Exception as e:

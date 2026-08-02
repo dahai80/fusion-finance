@@ -29,10 +29,18 @@ class AuditTrail:
         Path(self.log_path).parent.mkdir(parents=True, exist_ok=True)
         self._entries: list[AuditEntry] = []
 
-    def record(self, user: str, action: str, module: str, details: str = "", status: str = "success",
-               duration_ms: float = 0.0) -> AuditEntry:
-        entry = AuditEntry(timestamp=time.time(), user=user, action=action,
-                          module=module, details=details, status=status, duration_ms=duration_ms)
+    def record(
+        self, user: str, action: str, module: str, details: str = "", status: str = "success", duration_ms: float = 0.0
+    ) -> AuditEntry:
+        entry = AuditEntry(
+            timestamp=time.time(),
+            user=user,
+            action=action,
+            module=module,
+            details=details,
+            status=status,
+            duration_ms=duration_ms,
+        )
         self._entries.append(entry)
         try:
             with open(self.log_path, "a") as f:
@@ -41,9 +49,17 @@ class AuditTrail:
             logger.error("Failed to write audit entry: %s", e)
         return entry
 
-    def query(self, user: str = "", action: str = "", module: str = "",
-              status: str = "", start_time: float = 0.0, end_time: float = 0.0,
-              limit: int = 100, offset: int = 0) -> list[AuditEntry]:
+    def query(
+        self,
+        user: str = "",
+        action: str = "",
+        module: str = "",
+        status: str = "",
+        start_time: float = 0.0,
+        end_time: float = 0.0,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditEntry]:
         results = []
         for e in reversed(self._entries):
             if user and e.user != user:
@@ -59,11 +75,19 @@ class AuditTrail:
             if end_time and e.timestamp > end_time:
                 continue
             results.append(e)
-        return results[offset:offset + limit]
+        return results[offset : offset + limit]
 
-    def query_from_file(self, user: str = "", action: str = "", module: str = "",
-                        status: str = "", start_time: float = 0.0, end_time: float = 0.0,
-                        limit: int = 100, offset: int = 0) -> list[AuditEntry]:
+    def query_from_file(
+        self,
+        user: str = "",
+        action: str = "",
+        module: str = "",
+        status: str = "",
+        start_time: float = 0.0,
+        end_time: float = 0.0,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditEntry]:
         results = []
         try:
             with open(self.log_path) as f:
@@ -94,7 +118,7 @@ class AuditTrail:
             results.append(e)
             if len(results) >= offset + limit:
                 break
-        return results[offset:offset + limit]
+        return results[offset : offset + limit]
 
     def get_stats(self) -> dict[str, Any]:
         return self._compute_stats(self._entries)

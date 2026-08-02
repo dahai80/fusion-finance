@@ -69,8 +69,7 @@ class TestReportFormatter:
             "chart_svg": "",
             "timestamp": "2026-01-01",
         }
-        result = self.formatter.export("", FORMAT_HTML, output_path=out,
-                                       template_name="valuation", template_data=data)
+        result = self.formatter.export("", FORMAT_HTML, output_path=out, template_name="valuation", template_data=data)
         assert Path(result).exists()
         content = Path(result).read_text()
         assert "TestCo" in content
@@ -226,6 +225,7 @@ class TestAuditTrailEnhanced:
 
     def teardown_method(self):
         import contextlib
+
         with contextlib.suppress(OSError):
             os.unlink(self.tmp_file.name)
 
@@ -272,6 +272,7 @@ class TestPhase3APIRoutes:
         from httpx import ASGITransport, AsyncClient
 
         from fusion_finance.api.app import app
+
         self.transport = ASGITransport(app=app)
         self.client = AsyncClient(transport=self.transport, base_url="http://test")
 
@@ -325,8 +326,9 @@ class TestPhase3APIRoutes:
 
     @pytest.mark.asyncio
     async def test_audit_record_query_stats(self):
-        rec = await self.client.post("/api/v1/audit/record",
-                                     json={"user": "test", "action": "create", "module": "project"})
+        rec = await self.client.post(
+            "/api/v1/audit/record", json={"user": "test", "action": "create", "module": "project"}
+        )
         assert rec.status_code == 200
         q = await self.client.post("/api/v1/audit/query", json={"user": "test"})
         assert q.status_code == 200

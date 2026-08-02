@@ -1,4 +1,5 @@
 """Phase 2 module tests: copilot, chart, data, websocket."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -229,53 +230,74 @@ class TestPhase2APIRoutes:
     @pytest.fixture
     def client(self):
         from fusion_finance.api.app import app
+
         return TestClient(app)
 
     def test_chart_candlestick(self, client):
-        resp = client.post("/api/v1/chart/candlestick", json={
-            "data": [{"open": 100, "high": 110, "low": 95, "close": 105}],
-            "title": "Test",
-        })
+        resp = client.post(
+            "/api/v1/chart/candlestick",
+            json={
+                "data": [{"open": 100, "high": 110, "low": 95, "close": 105}],
+                "title": "Test",
+            },
+        )
         assert resp.status_code == 200
         assert "svg" in resp.json()
 
     def test_chart_heatmap(self, client):
-        resp = client.post("/api/v1/chart/heatmap", json={
-            "matrix": [[1, 2], [3, 4]],
-            "row_labels": ["A", "B"],
-            "col_labels": ["X", "Y"],
-        })
+        resp = client.post(
+            "/api/v1/chart/heatmap",
+            json={
+                "matrix": [[1, 2], [3, 4]],
+                "row_labels": ["A", "B"],
+                "col_labels": ["X", "Y"],
+            },
+        )
         assert resp.status_code == 200
         assert "svg" in resp.json()
 
     def test_chart_waterfall(self, client):
-        resp = client.post("/api/v1/chart/waterfall", json={
-            "categories": ["Rev", "Cost", "Profit"],
-            "values": [100, -40, 60],
-        })
+        resp = client.post(
+            "/api/v1/chart/waterfall",
+            json={
+                "categories": ["Rev", "Cost", "Profit"],
+                "values": [100, -40, 60],
+            },
+        )
         assert resp.status_code == 200
 
     def test_chart_sensitivity(self, client):
-        resp = client.post("/api/v1/chart/sensitivity", json={
-            "factors": ["wacc", "growth"],
-            "low_values": [80, 70],
-            "high_values": [120, 130],
-            "base_value": 100,
-        })
+        resp = client.post(
+            "/api/v1/chart/sensitivity",
+            json={
+                "factors": ["wacc", "growth"],
+                "low_values": [80, 70],
+                "high_values": [120, 130],
+                "base_value": 100,
+            },
+        )
         assert resp.status_code == 200
 
     def test_data_validate_balance(self, client):
-        resp = client.post("/api/v1/data/validate/balance", json={
-            "assets": 100, "liabilities": 40, "equity": 60,
-        })
+        resp = client.post(
+            "/api/v1/data/validate/balance",
+            json={
+                "assets": 100,
+                "liabilities": 40,
+                "equity": 60,
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["balanced"] is True
 
     def test_data_validate_completeness(self, client):
-        resp = client.post("/api/v1/data/validate/completeness", json={
-            "data": [{"revenue": 100}],
-            "required_fields": ["revenue"],
-        })
+        resp = client.post(
+            "/api/v1/data/validate/completeness",
+            json={
+                "data": [{"revenue": 100}],
+                "required_fields": ["revenue"],
+            },
+        )
         assert resp.status_code == 200
 
     def test_data_cache_list(self, client):

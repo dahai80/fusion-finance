@@ -16,7 +16,12 @@ TOOL_DEFINITIONS = [
     {
         "name": "calculate_dcf",
         "description": "纯数学DCF计算，需要完整参数",
-        "parameters": {"company": "公司名", "revenue": "收入", "wacc": "加权平均资本成本", "terminal_growth": "永续增长率"},
+        "parameters": {
+            "company": "公司名",
+            "revenue": "收入",
+            "wacc": "加权平均资本成本",
+            "terminal_growth": "永续增长率",
+        },
     },
     {
         "name": "build_comps",
@@ -105,9 +110,9 @@ class ToolRegistry:
             lines.append(f"- {t['name']}({params}): {t['description']}")
         lines.append("")
         lines.append("如果需要调用工具，请回复JSON格式:")
-        lines.append('```json')
+        lines.append("```json")
         lines.append('{"tool": "工具名", "args": {参数}}')
-        lines.append('```')
+        lines.append("```")
         lines.append("如果不需要调用工具，直接回复用户问题。")
         return "\n".join(lines)
 
@@ -126,6 +131,7 @@ class ToolRegistry:
     async def _build_dcf(self, args: dict[str, Any]) -> Any:
         from ..ai_client import MLXClient
         from ..modeling.engine import FinancialModelingEngine
+
         mlx = MLXClient()
         engine = FinancialModelingEngine(mlx)
         model = await engine.build_dcf(args.get("company", ""), args.get("revenue", []))
@@ -133,6 +139,7 @@ class ToolRegistry:
 
     async def _calculate_dcf(self, args: dict[str, Any]) -> Any:
         from ..modeling.engine import DCFModel
+
         model = DCFModel(
             company=args.get("company", ""),
             revenue=args.get("revenue", []),
@@ -144,6 +151,7 @@ class ToolRegistry:
     async def _build_comps(self, args: dict[str, Any]) -> Any:
         from ..ai_client import MLXClient
         from ..modeling.engine import FinancialModelingEngine
+
         mlx = MLXClient()
         engine = FinancialModelingEngine(mlx)
         comps = await engine.build_comps(args.get("company", ""), args.get("industry", ""))
@@ -151,6 +159,7 @@ class ToolRegistry:
 
     async def _sensitivity(self, args: dict[str, Any]) -> Any:
         from ..modeling.engine import DCFModel, FinancialModelingEngine
+
         model = DCFModel(
             company=args.get("company", ""),
             revenue=args.get("revenue", []),
@@ -165,6 +174,7 @@ class ToolRegistry:
 
     async def _monte_carlo(self, args: dict[str, Any]) -> Any:
         from ..modeling.engine import DCFModel, FinancialModelingEngine
+
         model = DCFModel(
             company=args.get("company", ""),
             revenue=args.get("revenue", []),
@@ -176,6 +186,7 @@ class ToolRegistry:
     async def _kyc(self, args: dict[str, Any]) -> Any:
         from ..ai_client import MLXClient
         from ..risk.engine import RiskComplianceEngine
+
         mlx = MLXClient()
         engine = RiskComplianceEngine(mlx)
         result = await engine.kyc_screening(args.get("entity", ""), args.get("jurisdiction", "CN"))
@@ -184,6 +195,7 @@ class ToolRegistry:
     async def _credit(self, args: dict[str, Any]) -> Any:
         from ..ai_client import MLXClient
         from ..risk.engine import RiskComplianceEngine
+
         mlx = MLXClient()
         engine = RiskComplianceEngine(mlx)
         result = await engine.credit_assessment(args.get("entity", ""), args.get("financials", {}))
@@ -191,6 +203,7 @@ class ToolRegistry:
 
     async def _var(self, args: dict[str, Any]) -> Any:
         from ..risk.advanced_risk import RiskModelingEngine
+
         result = RiskModelingEngine.calculate_var(
             args.get("returns", []),
             args.get("portfolio_value", 1_000_000),
@@ -199,12 +212,14 @@ class ToolRegistry:
 
     async def _stress_test(self, args: dict[str, Any]) -> Any:
         from ..risk.advanced_risk import RiskModelingEngine
+
         scenarios = RiskModelingEngine.stress_test_scenarios()
         return [asdict(s) for s in scenarios]
 
     async def _val_report(self, args: dict[str, Any]) -> Any:
         from ..modeling.engine import DCFModel
         from ..report.reports import ReportGenerator
+
         dcf = DCFModel(company=args.get("company", ""), revenue=args.get("revenue", []))
         dcf.calculate()
         generator = ReportGenerator()
@@ -212,6 +227,7 @@ class ToolRegistry:
 
     async def _metrics(self, args: dict[str, Any]) -> Any:
         from ..statements.analyzer import StatementAnalyzer
+
         analyzer = StatementAnalyzer()
         stmt = {
             "income_statement": args.get("income_statement", {}),
@@ -222,6 +238,7 @@ class ToolRegistry:
 
     async def _portfolio(self, args: dict[str, Any]) -> Any:
         from ..modeling.portfolio import PortfolioOptimizer
+
         opt = PortfolioOptimizer(
             returns=args.get("returns", []),
             volatilities=args.get("volatilities", []),

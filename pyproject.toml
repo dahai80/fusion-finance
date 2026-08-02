@@ -1,6 +1,6 @@
 [project]
 name = "fusion-finance"
-version = "0.2.1"
+version = "0.2.2"
 description = "Fusion-Finance — Local AI-powered financial analysis platform. macOS Apple Silicon native, 100% offline, powered by fusion-mlx."
 requires-python = ">=3.11"
 dependencies = [

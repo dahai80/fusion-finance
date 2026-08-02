@@ -54,13 +54,17 @@ class StatementAnalyzer:
         analysis = FinancialAnalysis(company=stmt.company, period=stmt.period)
         if stmt.revenue:
             analysis.gross_margin = round(stmt.gross_profit / stmt.revenue * 100, 2) if stmt.gross_profit else 0
-            analysis.operating_margin = round(stmt.operating_income / stmt.revenue * 100, 2) if stmt.operating_income else 0
+            analysis.operating_margin = (
+                round(stmt.operating_income / stmt.revenue * 100, 2) if stmt.operating_income else 0
+            )
             analysis.net_margin = round(stmt.net_income / stmt.revenue * 100, 2) if stmt.net_income else 0
         if stmt.equity:
             analysis.roe = round(stmt.net_income / stmt.equity * 100, 2) if stmt.net_income else 0
         if stmt.total_assets:
             analysis.roa = round(stmt.net_income / stmt.total_assets * 100, 2) if stmt.net_income else 0
-            analysis.debt_ratio = round(stmt.total_liabilities / stmt.total_assets * 100, 2) if stmt.total_liabilities else 0
+            analysis.debt_ratio = (
+                round(stmt.total_liabilities / stmt.total_assets * 100, 2) if stmt.total_liabilities else 0
+            )
         return analysis
 
     async def analyze_statements(self, company: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -70,10 +74,13 @@ class StatementAnalyzer:
 
 返回JSON: {{"revenue_growth": 收入增长率, "key_metrics": {{"毛利率": "分析", "净利率": "分析"}}, "strengths": ["财务优势"], "weaknesses": ["财务风险"], "recommendations": ["建议"], "quality_score": "财务质量评分(A/B/C/D)"}}"""
         try:
-            response = await self.mlx.chat([
-                {"role": "system", "content": "你是一位资深财务分析师，精通财务报表分析。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
+            response = await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位资深财务分析师，精通财务报表分析。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+            )
             return parse_json(response) or {"company": company}
         except Exception as e:
             return {"error": str(e)}

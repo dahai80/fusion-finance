@@ -13,15 +13,27 @@ from fusion_finance.statements import FinancialStatement, StatementAnalyzer
 
 class TestDCFModel:
     def test_dcf_calculation(self):
-        model = DCFModel(company="Test", revenue=[100, 120, 140], forecast_years=3,
-                         ebit_margin=[0.2, 0.22, 0.25], wacc=0.10, terminal_growth=0.03)
+        model = DCFModel(
+            company="Test",
+            revenue=[100, 120, 140],
+            forecast_years=3,
+            ebit_margin=[0.2, 0.22, 0.25],
+            wacc=0.10,
+            terminal_growth=0.03,
+        )
         result = model.calculate()
         assert result["enterprise_value"] > 0
         assert result["pv_fcf"] > 0
 
     def test_dcf_with_target_price(self):
-        model = DCFModel(company="Test", revenue=[100, 120], forecast_years=2,
-                         ebit_margin=[0.2, 0.22], net_debt=50, shares_outstanding=10)
+        model = DCFModel(
+            company="Test",
+            revenue=[100, 120],
+            forecast_years=2,
+            ebit_margin=[0.2, 0.22],
+            net_debt=50,
+            shares_outstanding=10,
+        )
         result = model.calculate()
         assert result["target_price"] > 0
 
@@ -68,9 +80,16 @@ class TestFinancialModelingEngine:
 
 class TestStatementAnalyzer:
     def test_calculate_metrics(self):
-        stmt = FinancialStatement(company="ABC", revenue=1000, gross_profit=400,
-                                  operating_income=200, net_income=150,
-                                  total_assets=2000, total_liabilities=800, equity=1200)
+        stmt = FinancialStatement(
+            company="ABC",
+            revenue=1000,
+            gross_profit=400,
+            operating_income=200,
+            net_income=150,
+            total_assets=2000,
+            total_liabilities=800,
+            equity=1200,
+        )
         analyzer = StatementAnalyzer()
         analysis = analyzer.calculate_metrics(stmt)
         assert analysis.gross_margin == 40.0
@@ -85,15 +104,13 @@ class TestStatementAnalyzer:
         assert analysis.gross_margin == 0
 
     def test_validate_balance_sheet_ok(self):
-        stmt = FinancialStatement(company="ABC", period="2024", total_assets=1000,
-                                  total_liabilities=400, equity=600)
+        stmt = FinancialStatement(company="ABC", period="2024", total_assets=1000, total_liabilities=400, equity=600)
         analyzer = StatementAnalyzer()
         issues = analyzer.validate_balance_sheet([stmt])
         assert len(issues) == 0
 
     def test_validate_balance_sheet_error(self):
-        stmt = FinancialStatement(company="ABC", period="2024", total_assets=1000,
-                                  total_liabilities=300, equity=300)
+        stmt = FinancialStatement(company="ABC", period="2024", total_assets=1000, total_liabilities=300, equity=300)
         analyzer = StatementAnalyzer()
         issues = analyzer.validate_balance_sheet([stmt])
         assert len(issues) >= 1
@@ -161,8 +178,10 @@ class TestMLXClient:
 class TestModuleIntegrity:
     def test_import(self):
         import fusion_finance
+
         assert fusion_finance.__version__ == "0.2.0"
 
     def test_cli_import(self):
         from fusion_finance import cli
+
         assert cli.main is not None

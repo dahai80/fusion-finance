@@ -168,10 +168,14 @@ async def build_dcf(req: DCFBuildRequest):
 async def calculate_dcf(req: DCFCalculateRequest):
     try:
         model = DCFModel(
-            company=req.company, forecast_years=req.forecast_years,
-            revenue=req.revenue, ebit_margin=req.ebit_margin,
-            tax_rate=req.tax_rate, wacc=req.wacc,
-            terminal_growth=req.terminal_growth, net_debt=req.net_debt,
+            company=req.company,
+            forecast_years=req.forecast_years,
+            revenue=req.revenue,
+            ebit_margin=req.ebit_margin,
+            tax_rate=req.tax_rate,
+            wacc=req.wacc,
+            terminal_growth=req.terminal_growth,
+            net_debt=req.net_debt,
             shares_outstanding=req.shares_outstanding,
         )
         result = model.calculate()
@@ -196,10 +200,14 @@ async def build_comps(req: CompsBuildRequest):
 async def sensitivity_analysis(req: SensitivityRequest):
     try:
         model = DCFModel(
-            company=req.company, forecast_years=req.forecast_years,
-            revenue=req.revenue, ebit_margin=req.ebit_margin,
-            tax_rate=req.tax_rate, wacc=req.wacc,
-            terminal_growth=req.terminal_growth, net_debt=req.net_debt,
+            company=req.company,
+            forecast_years=req.forecast_years,
+            revenue=req.revenue,
+            ebit_margin=req.ebit_margin,
+            tax_rate=req.tax_rate,
+            wacc=req.wacc,
+            terminal_growth=req.terminal_growth,
+            net_debt=req.net_debt,
             shares_outstanding=req.shares_outstanding,
         )
         model.calculate()
@@ -215,10 +223,14 @@ async def sensitivity_analysis(req: SensitivityRequest):
 async def monte_carlo(req: MonteCarloRequest):
     try:
         model = DCFModel(
-            company=req.company, forecast_years=req.forecast_years,
-            revenue=req.revenue, ebit_margin=req.ebit_margin,
-            tax_rate=req.tax_rate, wacc=req.wacc,
-            terminal_growth=req.terminal_growth, net_debt=req.net_debt,
+            company=req.company,
+            forecast_years=req.forecast_years,
+            revenue=req.revenue,
+            ebit_margin=req.ebit_margin,
+            tax_rate=req.tax_rate,
+            wacc=req.wacc,
+            terminal_growth=req.terminal_growth,
+            net_debt=req.net_debt,
             shares_outstanding=req.shares_outstanding,
         )
         model.calculate()
@@ -245,8 +257,10 @@ async def build_lbo(req: LBOBuildRequest):
 async def calculate_ddm(req: DDMRequest):
     try:
         model = DDMModel(
-            company=req.company, current_dividend=req.current_dividend,
-            growth_rate=req.growth_rate, required_return=req.required_return,
+            company=req.company,
+            current_dividend=req.current_dividend,
+            growth_rate=req.growth_rate,
+            required_return=req.required_return,
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
@@ -259,8 +273,10 @@ async def calculate_ddm(req: DDMRequest):
 async def calculate_merger(req: MergerRequest):
     try:
         model = MergerModel(
-            acquirer=req.acquirer, target=req.target,
-            acquirer_price=req.acquirer_price, target_price=req.target_price,
+            acquirer=req.acquirer,
+            target=req.target,
+            acquirer_price=req.acquirer_price,
+            target_price=req.target_price,
             premium=req.premium,
         )
         result = model.calculate()
@@ -274,9 +290,12 @@ async def calculate_merger(req: MergerRequest):
 async def calculate_apv(req: APVRequest):
     try:
         model = APVModel(
-            company=req.company, unlevered_fcf=req.unlevered_fcf,
-            unlevered_cost=req.unlevered_cost, debt=req.debt,
-            tax_rate=req.tax_rate, debt_cost=req.debt_cost,
+            company=req.company,
+            unlevered_fcf=req.unlevered_fcf,
+            unlevered_cost=req.unlevered_cost,
+            debt=req.debt,
+            tax_rate=req.tax_rate,
+            debt_cost=req.debt_cost,
             terminal_growth=req.terminal_growth,
         )
         result = model.calculate()
@@ -290,8 +309,10 @@ async def calculate_apv(req: APVRequest):
 async def calculate_eva(req: EVARequest):
     try:
         model = EVAModel(
-            company=req.company, nopat=req.nopat,
-            invested_capital=req.invested_capital, wacc=req.wacc,
+            company=req.company,
+            nopat=req.nopat,
+            invested_capital=req.invested_capital,
+            wacc=req.wacc,
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
@@ -304,8 +325,10 @@ async def calculate_eva(req: EVARequest):
 async def calculate_ri(req: RIRequest):
     try:
         model = RIModel(
-            company=req.company, book_value=req.book_value,
-            net_income=req.net_income, cost_of_equity=req.cost_of_equity,
+            company=req.company,
+            book_value=req.book_value,
+            net_income=req.net_income,
+            cost_of_equity=req.cost_of_equity,
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
@@ -318,8 +341,11 @@ async def calculate_ri(req: RIRequest):
 async def optimize_portfolio(req: PortfolioOptimizeRequest):
     try:
         portfolios = PortfolioOptimizer.efficient_frontier(
-            req.returns, req.volatilities, req.correlations,
-            req.risk_free, req.num_simulations,
+            req.returns,
+            req.volatilities,
+            req.correlations,
+            req.risk_free,
+            req.num_simulations,
         )
         max_sharpe = PortfolioOptimizer.max_sharpe(portfolios)
         min_vol = PortfolioOptimizer.min_volatility(portfolios)
@@ -386,10 +412,14 @@ async def update_session(session_id: str, req: SessionUpdateRequest):
 async def scenario_compare(req: ScenarioRequest):
     try:
         model = DCFModel(
-            company=req.company, forecast_years=req.forecast_years,
-            revenue=req.revenue, ebit_margin=req.ebit_margin,
-            tax_rate=req.tax_rate, wacc=req.wacc,
-            terminal_growth=req.terminal_growth, net_debt=req.net_debt,
+            company=req.company,
+            forecast_years=req.forecast_years,
+            revenue=req.revenue,
+            ebit_margin=req.ebit_margin,
+            tax_rate=req.tax_rate,
+            wacc=req.wacc,
+            terminal_growth=req.terminal_growth,
+            net_debt=req.net_debt,
             shares_outstanding=req.shares_outstanding,
         )
         model.calculate()

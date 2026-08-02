@@ -38,14 +38,21 @@ class ReportGenerator:
             lines.append("| 公司 | PE | EV/EBITDA | PS |")
             lines.append("|------|-----|-----------|-----|")
             for p in comps.peers:
-                lines.append(f"| {p.get('name', '')} | {p.get('pe', 0):.1f} | {p.get('ev_ebitda', 0):.1f} | {p.get('ps', 0):.1f} |")
+                lines.append(
+                    f"| {p.get('name', '')} | {p.get('pe', 0):.1f} | {p.get('ev_ebitda', 0):.1f} | {p.get('ps', 0):.1f} |"
+                )
             lines.append("")
         lines.append("---")
         lines.append(f"*由 Fusion-Finance 于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 自动生成*")
         return "\n".join(lines)
 
     def generate_pitchbook(self, company: str, dcf: DCFModel, industry: str) -> str:
-        lines = [f"# {company} — 投资推介材料", f"**行业**: {industry}", f"**日期**: {datetime.now().strftime('%Y-%m-%d')}", ""]
+        lines = [
+            f"# {company} — 投资推介材料",
+            f"**行业**: {industry}",
+            f"**日期**: {datetime.now().strftime('%Y-%m-%d')}",
+            "",
+        ]
         lines.append("## 投资亮点")
         lines.append("1. 行业领先地位")
         lines.append("2. 强劲的财务表现")
@@ -73,15 +80,19 @@ class ReportGenerator:
 
 格式: Markdown，包含投资逻辑、财务分析、行业展望、估值、风险提示。"""
         try:
-            return await self.mlx.chat([
-                {"role": "system", "content": "你是一位资深行业研究员，撰写深度投研报告。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.3)
+            return await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位资深行业研究员，撰写深度投研报告。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+            )
         except Exception as e:
             return f"# {company} 投研报告\n\n*报告生成失败: {e}*"
 
     def save_report(self, content: str, output_dir: str, filename: str = "") -> str:
         from pathlib import Path
+
         path = Path(output_dir).expanduser()
         path.mkdir(parents=True, exist_ok=True)
         if not filename:

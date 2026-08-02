@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DCFModel:
     """DCF 估值模型。"""
+
     company: str = ""
     forecast_years: int = 5
     revenue: list[float] = field(default_factory=list)
@@ -37,7 +38,11 @@ class DCFModel:
         fcf = []
         for i in range(min(self.forecast_years, len(self.revenue))):
             rev = self.revenue[i]
-            margin = self.ebit_margin[i] if i < len(self.ebit_margin) else (self.ebit_margin[-1] if self.ebit_margin else 0.15)
+            margin = (
+                self.ebit_margin[i]
+                if i < len(self.ebit_margin)
+                else (self.ebit_margin[-1] if self.ebit_margin else 0.15)
+            )
             ebit = rev * margin
             nopat = ebit * (1 - self.tax_rate)
             fcf.append(nopat)
@@ -61,6 +66,7 @@ class DCFModel:
 @dataclass
 class CompsAnalysis:
     """可比公司分析。"""
+
     company: str = ""
     peers: list[dict[str, float]] = field(default_factory=list)
     avg_pe: float = 0.0
@@ -121,8 +127,11 @@ class InteractiveDCFSession:
         return {
             "company": self.company,
             "version": self.version,
-            "assumptions": {k: v for k, v in self.model.__dict__.items()
-                           if k not in ("enterprise_value", "equity_value", "target_price", "assumptions")},
+            "assumptions": {
+                k: v
+                for k, v in self.model.__dict__.items()
+                if k not in ("enterprise_value", "equity_value", "target_price", "assumptions")
+            },
             "result": result,
         }
 
@@ -133,9 +142,7 @@ class FinancialModelingEngine:
     def __init__(self, mlx: MLXClient | None = None):
         self.mlx = mlx or MLXClient()
 
-    async def build_dcf(
-        self, company: str, revenue: list[float], assumptions: dict | None = None
-    ) -> DCFModel:
+    async def build_dcf(self, company: str, revenue: list[float], assumptions: dict | None = None) -> DCFModel:
         """AI 辅助构建 DCF 模型。"""
         prompt = f"""为{company}构建DCF估值模型。
 
@@ -144,15 +151,20 @@ class FinancialModelingEngine:
 
 返回JSON: {{"ebit_margin": [各年EBIT利润率], "tax_rate": 税率, "wacc": 加权平均资本成本, "terminal_growth": 永续增长率, "net_debt": 净债务, "shares": 总股本, "assumptions": {{"key_drivers": [], "risks": []}} }}"""
         try:
-            response = await self.mlx.chat([
-                {"role": "system", "content": "你是一位资深投行分析师，精通DCF估值建模。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
+            response = await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位资深投行分析师，精通DCF估值建模。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+            )
             data = parse_json(response)
             if data:
                 model = DCFModel(
-                    company=company, forecast_years=len(revenue),
-                    revenue=revenue, assumptions=data.get("assumptions", {}),
+                    company=company,
+                    forecast_years=len(revenue),
+                    revenue=revenue,
+                    assumptions=data.get("assumptions", {}),
                 )
                 if "ebit_margin" in data and isinstance(data["ebit_margin"], list):
                     model.ebit_margin = data["ebit_margin"]
@@ -169,9 +181,7 @@ class FinancialModelingEngine:
         model.calculate()
         return model
 
-    async def build_comps(
-        self, company: str, industry: str, peers: list[str] | None = None
-    ) -> CompsAnalysis:
+    async def build_comps(self, company: str, industry: str, peers: list[str] | None = None) -> CompsAnalysis:
         """AI 辅助构建可比公司分析。"""
         peers_str = ", ".join(peers) if peers else "行业主要公司"
         prompt = f"""为{company}({industry})进行可比公司分析。
@@ -180,17 +190,22 @@ class FinancialModelingEngine:
 
 返回JSON: {{"peers": [{{"name": "公司名", "pe": 市盈率, "ev_ebitda": 企业价值/EBITDA, "ps": 市销率, "revenue_growth": 收入增长率, "ebitda_margin": EBITDA利润率}}], "target_pe": 目标市盈率, "target_ev_ebitda": 目标EV/EBITDA, "analysis": "分析结论"}}"""
         try:
-            response = await self.mlx.chat([
-                {"role": "system", "content": "你是一位股票研究分析师，精通可比公司估值。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
+            response = await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位股票研究分析师，精通可比公司估值。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+            )
             data = parse_json(response)
             if data:
                 peers_data = data.get("peers", [])
                 comps = CompsAnalysis(company=company, peers=peers_data)
                 if peers_data:
                     comps.avg_pe = sum(p.get("pe", 0) for p in peers_data) / len(peers_data)
-                    comps.avg_ev_ebitda = sum(p.get("ev_ebitda", 0) for p in peers_data if p.get("ev_ebitda")) / max(len([p for p in peers_data if p.get("ev_ebitda")]), 1)
+                    comps.avg_ev_ebitda = sum(p.get("ev_ebitda", 0) for p in peers_data if p.get("ev_ebitda")) / max(
+                        len([p for p in peers_data if p.get("ev_ebitda")]), 1
+                    )
                     comps.avg_ps = sum(p.get("ps", 0) for p in peers_data) / len(peers_data)
                 comps.target_pe = data.get("target_pe", comps.avg_pe)
                 comps.target_ev_ebitda = data.get("target_ev_ebitda", comps.avg_ev_ebitda)
@@ -218,28 +233,33 @@ class FinancialModelingEngine:
     async def monte_carlo(self, model: DCFModel, simulations: int = 1000) -> dict[str, Any]:
         """蒙特卡洛模拟 — 评估估值区间。"""
         import random
+
         values = []
         for _ in range(simulations):
             wacc = model.wacc * (1 + random.gauss(0, 0.1))
             growth = model.terminal_growth * (1 + random.gauss(0, 0.2))
             revenue_mult = [1 + random.gauss(0, 0.05) for _ in model.revenue]
             m = DCFModel(
-                company=model.company, forecast_years=model.forecast_years,
+                company=model.company,
+                forecast_years=model.forecast_years,
                 revenue=[r * m for r, m in zip(model.revenue, revenue_mult)],
-                ebit_margin=model.ebit_margin, tax_rate=model.tax_rate,
-                wacc=wacc, terminal_growth=growth,
-                net_debt=model.net_debt, shares_outstanding=model.shares_outstanding,
+                ebit_margin=model.ebit_margin,
+                tax_rate=model.tax_rate,
+                wacc=wacc,
+                terminal_growth=growth,
+                net_debt=model.net_debt,
+                shares_outstanding=model.shares_outstanding,
             )
             m.calculate()
             values.append(m.equity_value)
         values.sort()
         return {
             "mean": round(sum(values) / len(values), 2),
-            "median": round(values[len(values)//2], 2),
-            "p5": round(values[int(len(values)*0.05)], 2),
-            "p25": round(values[int(len(values)*0.25)], 2),
-            "p75": round(values[int(len(values)*0.75)], 2),
-            "p95": round(values[int(len(values)*0.95)], 2),
+            "median": round(values[len(values) // 2], 2),
+            "p5": round(values[int(len(values) * 0.05)], 2),
+            "p25": round(values[int(len(values) * 0.25)], 2),
+            "p75": round(values[int(len(values) * 0.75)], 2),
+            "p95": round(values[int(len(values) * 0.95)], 2),
             "min": round(values[0], 2),
             "max": round(values[-1], 2),
             "simulations": simulations,

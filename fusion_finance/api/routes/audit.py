@@ -37,8 +37,12 @@ class AuditQueryRequest(BaseModel):
 async def record_audit(req: AuditRecordRequest):
     try:
         entry = _audit.record(
-            user=req.user, action=req.action, module=req.module,
-            details=req.details, status=req.status, duration_ms=req.duration_ms,
+            user=req.user,
+            action=req.action,
+            module=req.module,
+            details=req.details,
+            status=req.status,
+            duration_ms=req.duration_ms,
         )
         return {"timestamp": entry.timestamp, "status": "ok"}
     except Exception as e:
@@ -50,9 +54,14 @@ async def record_audit(req: AuditRecordRequest):
 async def query_audit(req: AuditQueryRequest):
     try:
         entries = _audit.query(
-            user=req.user, action=req.action, module=req.module,
-            status=req.status, start_time=req.start_time, end_time=req.end_time,
-            limit=req.limit, offset=req.offset,
+            user=req.user,
+            action=req.action,
+            module=req.module,
+            status=req.status,
+            start_time=req.start_time,
+            end_time=req.end_time,
+            limit=req.limit,
+            offset=req.offset,
         )
         return {
             "entries": [

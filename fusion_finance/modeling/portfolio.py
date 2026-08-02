@@ -33,7 +33,14 @@ class PortfolioOptimizer:
             port_var = sum(w[i] * w[j] * vols[i] * vols[j] * corr[i][j] for i in range(n) for j in range(n))
             port_vol = math.sqrt(port_var) if port_var > 0 else 0
             sharpe = (port_ret - risk_free) / port_vol if port_vol > 0 else 0
-            portfolios.append({"return": round(port_ret, 4), "volatility": round(port_vol, 4), "sharpe": round(sharpe, 4), "weights": w})
+            portfolios.append(
+                {
+                    "return": round(port_ret, 4),
+                    "volatility": round(port_vol, 4),
+                    "sharpe": round(sharpe, 4),
+                    "weights": w,
+                }
+            )
         return portfolios
 
     @staticmethod
@@ -62,11 +69,18 @@ class Bond:
         n = self.years_to_maturity * self.payment_freq
         coupon = self.face_value * c
         self.price = sum(coupon / (1 + y) ** t for t in range(1, n + 1)) + self.face_value / (1 + y) ** n
-        self.duration = sum(t * coupon / (1 + y) ** t for t in range(1, n + 1)) / self.price + n * self.face_value / (1 + y) ** n / self.price
+        self.duration = (
+            sum(t * coupon / (1 + y) ** t for t in range(1, n + 1)) / self.price
+            + n * self.face_value / (1 + y) ** n / self.price
+        )
         md = self.duration / (1 + y)
         self.convexity = sum(t * (t + 1) * coupon / (1 + y) ** (t + 2) for t in range(1, n + 1)) / self.price
-        return {"price": round(self.price, 2), "duration": round(self.duration, 4),
-                "modified_duration": round(md, 4), "convexity": round(self.convexity, 4)}
+        return {
+            "price": round(self.price, 2),
+            "duration": round(self.duration, 4),
+            "modified_duration": round(md, 4),
+            "convexity": round(self.convexity, 4),
+        }
 
 
 class TechnicalIndicators:
@@ -74,7 +88,7 @@ class TechnicalIndicators:
     def sma(prices, period=20):
         if len(prices) < period:
             return []
-        return [sum(prices[i - period:i]) / period for i in range(period, len(prices) + 1)]
+        return [sum(prices[i - period : i]) / period for i in range(period, len(prices) + 1)]
 
     @staticmethod
     def ema(prices, period=20):
@@ -115,6 +129,11 @@ class TechnicalIndicators:
         offset = len(ema12) - len(ema26)
         macd_line = [ema12[i] - ema26[i - offset] for i in range(len(ema12))]
         signal = TechnicalIndicators.ema(macd_line, 9)
-        return [{"macd": round(macd_line[i], 4), "signal": round(signal[i], 4) if i < len(signal) else 0,
-                 "histogram": round(macd_line[i] - signal[i], 4) if i < len(signal) else 0}
-                for i in range(len(macd_line))]
+        return [
+            {
+                "macd": round(macd_line[i], 4),
+                "signal": round(signal[i], 4) if i < len(signal) else 0,
+                "histogram": round(macd_line[i] - signal[i], 4) if i < len(signal) else 0,
+            }
+            for i in range(len(macd_line))
+        ]

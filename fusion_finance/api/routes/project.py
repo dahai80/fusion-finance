@@ -83,8 +83,7 @@ async def get_project(project_id: str):
 
 @router.put("/{project_id}", summary="更新项目")
 async def update_project(project_id: str, req: ProjectUpdateRequest):
-    proj = _manager.update(project_id, name=req.name, description=req.description,
-                           metadata=req.metadata, data=req.data)
+    proj = _manager.update(project_id, name=req.name, description=req.description, metadata=req.metadata, data=req.data)
     if not proj:
         raise HTTPException(status_code=404, detail="项目不存在")
     return {"id": proj.id, "name": proj.name, "updated_at": proj.updated_at}

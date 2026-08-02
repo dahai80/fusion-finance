@@ -72,8 +72,9 @@ def statement():
 @click.pass_context
 def stmt_analyze(ctx, company, revenue, net_income, total_assets):
     """分析财务指标。"""
-    stmt = FinancialStatement(company=company, revenue=revenue or 0,
-                              net_income=net_income or 0, total_assets=total_assets or 0)
+    stmt = FinancialStatement(
+        company=company, revenue=revenue or 0, net_income=net_income or 0, total_assets=total_assets or 0
+    )
     analyzer = ctx.obj["statements"]
     analysis = analyzer.calculate_metrics(stmt)
     click.echo(f"\n📋 {company} 财务指标")
@@ -134,6 +135,7 @@ def report_valuation(ctx, company, output):
 def serve(host, port, reload):
     """启动 FastAPI 服务。"""
     import uvicorn
+
     click.echo(f"🚀 Fusion-Finance API starting on {host}:{port}")
     uvicorn.run(
         "fusion_finance.api.app:app",

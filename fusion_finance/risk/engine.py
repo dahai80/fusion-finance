@@ -41,14 +41,18 @@ class RiskComplianceEngine:
 
 返回JSON: {{"risk_level": "low/medium/high", "risk_score": 0-100, "findings": ["发现项"], "recommendations": ["建议"]}}"""
         try:
-            response = await self.mlx.chat([
-                {"role": "system", "content": "你是一位合规分析师，精通KYC尽调和反洗钱。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
+            response = await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位合规分析师，精通KYC尽调和反洗钱。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+            )
             data = parse_json(response)
             if data:
                 return KYCCheck(
-                    entity=entity, risk_level=data.get("risk_level", "medium"),
+                    entity=entity,
+                    risk_level=data.get("risk_level", "medium"),
                     risk_score=data.get("risk_score", 50),
                     findings=data.get("findings", []),
                     recommendations=data.get("recommendations", []),
@@ -64,14 +68,18 @@ class RiskComplianceEngine:
 
 返回JSON: {{"credit_score": 0-100, "rating": "AAA/AA/A/BBB/BB/B/CCC", "max_credit_line": 建议授信额度, "strengths": ["信用优势"], "concerns": ["信用风险"]}}"""
         try:
-            response = await self.mlx.chat([
-                {"role": "system", "content": "你是一位信用分析师，精通企业信用评估。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
+            response = await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位信用分析师，精通企业信用评估。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+            )
             data = parse_json(response)
             if data:
                 return CreditAssessment(
-                    entity=entity, credit_score=data.get("credit_score", 0),
+                    entity=entity,
+                    credit_score=data.get("credit_score", 0),
                     rating=data.get("rating", "BBB"),
                     max_credit_line=data.get("max_credit_line", 0),
                     strengths=data.get("strengths", []),
@@ -88,10 +96,13 @@ class RiskComplianceEngine:
 
 返回JSON: {{"compliant": true/false, "issues": [{{"clause": "条款", "risk": "high/medium/low", "description": "问题描述", "suggestion": "修改建议"}}], "overall_risk": "low/medium/high", "summary": "审查总结"}}"""
         try:
-            response = await self.mlx.chat([
-                {"role": "system", "content": "你是一位资深法务合规专家，精通合同审查。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
+            response = await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位资深法务合规专家，精通合同审查。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+            )
             return parse_json(response) or {"compliant": True}
         except Exception as exc:
             return {"error": str(exc)}

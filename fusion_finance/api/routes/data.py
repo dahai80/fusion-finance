@@ -97,10 +97,12 @@ async def list_cache():
             for f in sorted(CACHE_DIR.glob("csv_*.json")):
                 try:
                     data = json.loads(f.read_text(encoding="utf-8"))
-                    items.append({
-                        "key": f.stem,
-                        "rows": len(data) if isinstance(data, list) else 0,
-                    })
+                    items.append(
+                        {
+                            "key": f.stem,
+                            "rows": len(data) if isinstance(data, list) else 0,
+                        }
+                    )
                 except Exception:
                     continue
         return {"items": items, "total": len(items)}

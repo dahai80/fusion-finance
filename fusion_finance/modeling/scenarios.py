@@ -51,7 +51,9 @@ class ScenarioManager:
             scenario_model.wacc = max(0.01, scenario_model.wacc + adjustments["wacc_adj"])
         result = scenario_model.calculate()
         labels = {"bear": "悲观", "base": "基准", "bull": "乐观"}
-        return Scenario(name=name, label=labels.get(name, name), adjustments=adjustments, model=scenario_model, result=result)
+        return Scenario(
+            name=name, label=labels.get(name, name), adjustments=adjustments, model=scenario_model, result=result
+        )
 
     def add_scenario(self, name: str, adjustments: dict[str, float], label: str = "") -> Scenario:
         scenario = self._build_scenario(name, adjustments)
@@ -77,13 +79,15 @@ class ScenarioManager:
             ev = s.result.get("equity_value", 0)
             base_ev = self.base_result.get("equity_value", 0)
             delta_pct = ((ev - base_ev) / base_ev * 100) if base_ev else 0
-            summary.append({
-                "name": name,
-                "label": s.label,
-                "equity_value": ev,
-                "target_price": s.result.get("target_price", 0),
-                "delta_pct": round(delta_pct, 1),
-            })
+            summary.append(
+                {
+                    "name": name,
+                    "label": s.label,
+                    "equity_value": ev,
+                    "target_price": s.result.get("target_price", 0),
+                    "delta_pct": round(delta_pct, 1),
+                }
+            )
         return summary
 
     def get_scenario(self, name: str) -> Scenario | None:

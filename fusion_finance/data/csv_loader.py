@@ -13,7 +13,9 @@ class CSVLoader:
     ENCODINGS = ["utf-8", "utf-8-sig", "gbk", "gb2312", "latin-1"]
     DEFAULT_DELIMITERS = [",", "\t", ";", "|"]
 
-    def load(self, source: str | Path, delimiter: str = "", encoding: str = "", has_header: bool = True) -> list[dict[str, Any]]:
+    def load(
+        self, source: str | Path, delimiter: str = "", encoding: str = "", has_header: bool = True
+    ) -> list[dict[str, Any]]:
         if isinstance(source, Path):
             return self._load_file(source, delimiter, encoding, has_header)
         if isinstance(source, str) and source.strip() and "\n" not in source and len(source) < 260:
@@ -51,7 +53,11 @@ class CSVLoader:
                     record[header] = self._auto_type(val)
                 data.append(record)
             return data
-        return [{f"col_{i}": self._auto_type(cell.strip()) for i, cell in enumerate(row)} for row in rows if any(c.strip() for c in row)]
+        return [
+            {f"col_{i}": self._auto_type(cell.strip()) for i, cell in enumerate(row)}
+            for row in rows
+            if any(c.strip() for c in row)
+        ]
 
     def _detect_encoding(self, path: Path) -> str:
         for enc in self.ENCODINGS:

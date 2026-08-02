@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LBOModel:
     """LBO 杠杆收购模型。"""
+
     company: str = ""
     purchase_price: float = 0.0
     debt_pct: float = 0.6
@@ -37,15 +38,22 @@ class LBOModel:
         debt_repayment = debt * 0.2 * self.exit_year
         exit_equity = exit_ev - (debt - debt_repayment)
         self.moic = exit_equity / equity if equity else 0
-        self.irr = (self.moic ** (1/self.exit_year) - 1) * 100 if self.exit_year > 0 else 0
-        return {"purchase_price": self.purchase_price, "debt": round(debt, 2), "equity": round(equity, 2),
-                "exit_ev": round(exit_ev, 2), "exit_equity": round(exit_equity, 2),
-                "moic": round(self.moic, 2), "irr": round(self.irr, 1)}
+        self.irr = (self.moic ** (1 / self.exit_year) - 1) * 100 if self.exit_year > 0 else 0
+        return {
+            "purchase_price": self.purchase_price,
+            "debt": round(debt, 2),
+            "equity": round(equity, 2),
+            "exit_ev": round(exit_ev, 2),
+            "exit_equity": round(exit_equity, 2),
+            "moic": round(self.moic, 2),
+            "irr": round(self.irr, 1),
+        }
 
 
 @dataclass
 class DDMModel:
     """DDM 股利贴现模型。"""
+
     company: str = ""
     current_dividend: float = 0.0
     growth_rate: float = 0.05
@@ -63,6 +71,7 @@ class DDMModel:
 @dataclass
 class MergerModel:
     """并购模型。"""
+
     acquirer: str = ""
     target: str = ""
     acquirer_price: float = 0.0
@@ -78,9 +87,13 @@ class MergerModel:
             self.acc_eps = self.acquirer_price * 0.01
             self.diluted_eps = offer_price * 0.008
             self.accretion = (self.acc_eps - self.diluted_eps) / self.diluted_eps * 100
-        return {"offer_price": round(offer_price, 2), "premium": self.premium * 100,
-                "acc_eps": round(self.acc_eps, 4), "diluted_eps": round(self.diluted_eps, 4),
-                "accretion": round(self.accretion, 1)}
+        return {
+            "offer_price": round(offer_price, 2),
+            "premium": self.premium * 100,
+            "acc_eps": round(self.acc_eps, 4),
+            "diluted_eps": round(self.diluted_eps, 4),
+            "accretion": round(self.accretion, 1),
+        }
 
 
 class AdvancedModelingEngine:
@@ -95,18 +108,24 @@ EBITDA预测: {ebitda}
 
 返回JSON: {{"purchase_price": 收购价, "debt_pct": 债务比例, "exit_multiple": 退出倍数, "interest_rate": 利率, "assumptions": {{"key_drivers": []}} }}"""
         try:
-            response = await self.mlx.chat([
-                {"role": "system", "content": "你是一位资深并购分析师，精通LBO建模。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
+            response = await self.mlx.chat(
+                [
+                    {"role": "system", "content": "你是一位资深并购分析师，精通LBO建模。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+            )
             data = parse_json(response)
             if data:
-                model = LBOModel(company=company, ebitda=ebitda,
+                model = LBOModel(
+                    company=company,
+                    ebitda=ebitda,
                     purchase_price=data.get("purchase_price", sum(ebitda) * 8),
                     debt_pct=data.get("debt_pct", 0.6),
                     exit_multiple=data.get("exit_multiple", 10.0),
                     interest_rate=data.get("interest_rate", 0.05),
-                    assumptions=data.get("assumptions", {}))
+                    assumptions=data.get("assumptions", {}),
+                )
                 model.calculate()
                 return model
         except Exception as e:

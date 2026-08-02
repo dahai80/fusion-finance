@@ -38,18 +38,21 @@ class ReportFormatter:
     def _detect_deps(self):
         try:
             import weasyprint
+
             self._weasyprint = weasyprint
             logger.debug("WeasyPrint available for PDF export")
         except ImportError:
             logger.debug("WeasyPrint not available, PDF export disabled")
         try:
             from pptx import Presentation
+
             self._pptx = Presentation
             logger.debug("python-pptx available for PPTX export")
         except ImportError:
             logger.debug("python-pptx not available, PPTX export disabled")
         try:
             import openpyxl
+
             self._openpyxl = openpyxl
             logger.debug("openpyxl available for XLSX export")
         except ImportError:
@@ -60,6 +63,7 @@ class ReportFormatter:
             return self._jinja_env
         try:
             from jinja2 import Environment, FileSystemLoader
+
             self._jinja_env = Environment(
                 loader=FileSystemLoader(str(TEMPLATES_DIR)),
                 autoescape=True,
@@ -98,8 +102,14 @@ class ReportFormatter:
 <style>body{{font-family:sans-serif;background:#0f0f1a;color:#e0e0e0;padding:40px;max-width:900px;margin:0 auto;}}</style>
 </head><body><h1>{company} - {template_name}</h1><p>{date_str}</p><div style="white-space:pre-wrap">{body}</div></body></html>"""
 
-    def export(self, content: str, fmt: str, output_path: str = "", template_name: str = "",
-               template_data: dict[str, Any] | None = None) -> str:
+    def export(
+        self,
+        content: str,
+        fmt: str,
+        output_path: str = "",
+        template_name: str = "",
+        template_data: dict[str, Any] | None = None,
+    ) -> str:
         fmt = fmt.lower()
         if fmt not in SUPPORTED_FORMATS:
             raise ValueError(f"Unsupported format: {fmt}. Supported: {SUPPORTED_FORMATS}")

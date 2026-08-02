@@ -92,8 +92,14 @@ class ProjectManager:
     def get(self, project_id: str) -> Project | None:
         return self._load_project(project_id)
 
-    def update(self, project_id: str, name: str = "", description: str = "",
-               metadata: dict | None = None, data: dict | None = None) -> Project | None:
+    def update(
+        self,
+        project_id: str,
+        name: str = "",
+        description: str = "",
+        metadata: dict | None = None,
+        data: dict | None = None,
+    ) -> Project | None:
         proj = self._load_project(project_id)
         if not proj:
             logger.warning("Project not found: %s", project_id)
@@ -126,14 +132,16 @@ class ProjectManager:
         for f in self.data_dir.glob("proj_*.json"):
             try:
                 raw = json.loads(f.read_text(encoding="utf-8"))
-                result.append({
-                    "id": raw.get("id", ""),
-                    "name": raw.get("name", ""),
-                    "description": raw.get("description", ""),
-                    "created_at": raw.get("created_at", 0),
-                    "updated_at": raw.get("updated_at", 0),
-                    "version_count": len(raw.get("versions", [])),
-                })
+                result.append(
+                    {
+                        "id": raw.get("id", ""),
+                        "name": raw.get("name", ""),
+                        "description": raw.get("description", ""),
+                        "created_at": raw.get("created_at", 0),
+                        "updated_at": raw.get("updated_at", 0),
+                        "version_count": len(raw.get("versions", [])),
+                    }
+                )
             except Exception as e:
                 logger.warning("Failed to read project file %s: %s", f.name, e)
         result.sort(key=lambda x: x.get("updated_at", 0), reverse=True)
@@ -186,7 +194,4 @@ class ProjectManager:
         proj = self._load_project(project_id)
         if not proj:
             return []
-        return [
-            {"version": v["version"], "label": v["label"], "timestamp": v["timestamp"]}
-            for v in proj.versions
-        ]
+        return [{"version": v["version"], "label": v["label"], "timestamp": v["timestamp"]} for v in proj.versions]

@@ -1,4 +1,5 @@
 """API endpoint tests for Fusion-Finance."""
+
 from __future__ import annotations
 
 import pytest
@@ -79,8 +80,21 @@ class TestModelingEndpoints:
 class TestStatementEndpoints:
     def test_calculate_metrics(self, client):
         payload = {
-            "income_statement": {"revenue": 1000, "cogs": 600, "operating_expenses": 200, "interest_expense": 50, "tax_rate": 0.25},
-            "balance_sheet": {"total_assets": 5000, "total_liabilities": 2000, "cash": 500, "current_assets": 1500, "current_liabilities": 800, "inventory": 300},
+            "income_statement": {
+                "revenue": 1000,
+                "cogs": 600,
+                "operating_expenses": 200,
+                "interest_expense": 50,
+                "tax_rate": 0.25,
+            },
+            "balance_sheet": {
+                "total_assets": 5000,
+                "total_liabilities": 2000,
+                "cash": 500,
+                "current_assets": 1500,
+                "current_liabilities": 800,
+                "inventory": 300,
+            },
             "cash_flow": {"operating_cf": 300, "capex": 100},
         }
         resp = client.post("/api/v1/statements/metrics", json=payload)
@@ -88,8 +102,21 @@ class TestStatementEndpoints:
 
     def test_validate(self, client):
         stmt = {
-            "income_statement": {"revenue": 1000, "cogs": 600, "operating_expenses": 200, "interest_expense": 50, "tax_rate": 0.25},
-            "balance_sheet": {"total_assets": 5000, "total_liabilities": 2000, "cash": 500, "current_assets": 1500, "current_liabilities": 800, "inventory": 300},
+            "income_statement": {
+                "revenue": 1000,
+                "cogs": 600,
+                "operating_expenses": 200,
+                "interest_expense": 50,
+                "tax_rate": 0.25,
+            },
+            "balance_sheet": {
+                "total_assets": 5000,
+                "total_liabilities": 2000,
+                "cash": 500,
+                "current_assets": 1500,
+                "current_liabilities": 800,
+                "inventory": 300,
+            },
             "cash_flow": {"operating_cf": 300, "capex": 100},
         }
         payload = {"statements": [stmt]}

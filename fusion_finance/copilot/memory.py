@@ -26,13 +26,15 @@ class ConversationMemory:
                 "context": {},
                 "created_at": time.time(),
             }
-        self._sessions[session_id]["messages"].append({
-            "role": role,
-            "content": content,
-            "timestamp": time.time(),
-        })
+        self._sessions[session_id]["messages"].append(
+            {
+                "role": role,
+                "content": content,
+                "timestamp": time.time(),
+            }
+        )
         if len(self._sessions[session_id]["messages"]) > self._max_history:
-            self._sessions[session_id]["messages"] = self._sessions[session_id]["messages"][-self._max_history:]
+            self._sessions[session_id]["messages"] = self._sessions[session_id]["messages"][-self._max_history :]
         self._sessions.move_to_end(session_id)
 
     def get_messages(self, session_id: str, limit: int = 0) -> list[dict[str, str]]:
@@ -73,11 +75,13 @@ class ConversationMemory:
     def list_sessions(self) -> list[dict[str, Any]]:
         result = []
         for sid, session in self._sessions.items():
-            result.append({
-                "session_id": sid,
-                "message_count": len(session["messages"]),
-                "created_at": session.get("created_at", 0),
-            })
+            result.append(
+                {
+                    "session_id": sid,
+                    "message_count": len(session["messages"]),
+                    "created_at": session.get("created_at", 0),
+                }
+            )
         return result
 
     def _ensure_capacity(self) -> None:

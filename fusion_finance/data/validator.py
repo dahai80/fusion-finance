@@ -24,7 +24,9 @@ class DataValidator:
                     errors.append(f"Non-numeric value for field '{field}': {val}")
         return (len(errors) == 0, errors)
 
-    def validate_dataset(self, data: list[dict[str, Any]], required_fields: list[str] | None = None) -> tuple[int, list[dict[str, Any]]]:
+    def validate_dataset(
+        self, data: list[dict[str, Any]], required_fields: list[str] | None = None
+    ) -> tuple[int, list[dict[str, Any]]]:
         valid_count = 0
         all_errors = []
         for i, row in enumerate(data):
@@ -36,11 +38,16 @@ class DataValidator:
         logger.info("Validated %d rows: %d valid, %d invalid", len(data), valid_count, len(all_errors))
         return (valid_count, all_errors)
 
-    def validate_balance_sheet(self, assets: float, liabilities: float, equity: float, tolerance: float = 0.01) -> tuple[bool, str]:
+    def validate_balance_sheet(
+        self, assets: float, liabilities: float, equity: float, tolerance: float = 0.01
+    ) -> tuple[bool, str]:
         diff = abs(assets - liabilities - equity)
         if diff <= tolerance * max(abs(assets), 1):
             return (True, "Balance sheet balanced")
-        return (False, f"Balance sheet imbalance: assets({assets}) != liabilities({liabilities}) + equity({equity}), diff={diff:.4f}")
+        return (
+            False,
+            f"Balance sheet imbalance: assets({assets}) != liabilities({liabilities}) + equity({equity}), diff={diff:.4f}",
+        )
 
     def sanitize_numeric(self, value: Any, default: float = 0.0) -> float:
         if value is None:
@@ -56,7 +63,9 @@ class DataValidator:
                 return default
         return default
 
-    def check_completeness(self, data: list[dict[str, Any]], required_fields: list[str] | None = None) -> dict[str, float]:
+    def check_completeness(
+        self, data: list[dict[str, Any]], required_fields: list[str] | None = None
+    ) -> dict[str, float]:
         if not data:
             return {}
         fields = required_fields or self.REQUIRED_FINANCIAL_FIELDS

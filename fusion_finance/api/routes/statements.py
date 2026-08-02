@@ -62,11 +62,17 @@ async def analyze_statements(req: AnalyzeRequest):
 async def calculate_metrics(req: MetricsRequest):
     try:
         stmt = FinancialStatement(
-            company=req.company, period=req.period,
-            revenue=req.revenue, gross_profit=req.gross_profit,
-            operating_income=req.operating_income, net_income=req.net_income,
-            total_assets=req.total_assets, total_liabilities=req.total_liabilities,
-            equity=req.equity, operating_cf=req.operating_cf, free_cf=req.free_cf,
+            company=req.company,
+            period=req.period,
+            revenue=req.revenue,
+            gross_profit=req.gross_profit,
+            operating_income=req.operating_income,
+            net_income=req.net_income,
+            total_assets=req.total_assets,
+            total_liabilities=req.total_liabilities,
+            equity=req.equity,
+            operating_cf=req.operating_cf,
+            free_cf=req.free_cf,
         )
         analyzer = StatementAnalyzer()
         analysis = analyzer.calculate_metrics(stmt)
@@ -81,13 +87,21 @@ async def validate_balance_sheet(req: ValidateRequest):
     try:
         stmts = []
         for s in req.statements:
-            stmts.append(FinancialStatement(
-                company=s.company, period=s.period,
-                revenue=s.revenue, gross_profit=s.gross_profit,
-                operating_income=s.operating_income, net_income=s.net_income,
-                total_assets=s.total_assets, total_liabilities=s.total_liabilities,
-                equity=s.equity, operating_cf=s.operating_cf, free_cf=s.free_cf,
-            ))
+            stmts.append(
+                FinancialStatement(
+                    company=s.company,
+                    period=s.period,
+                    revenue=s.revenue,
+                    gross_profit=s.gross_profit,
+                    operating_income=s.operating_income,
+                    net_income=s.net_income,
+                    total_assets=s.total_assets,
+                    total_liabilities=s.total_liabilities,
+                    equity=s.equity,
+                    operating_cf=s.operating_cf,
+                    free_cf=s.free_cf,
+                )
+            )
         analyzer = StatementAnalyzer()
         issues = analyzer.validate_balance_sheet(stmts)
         return {"total_checked": len(stmts), "issues": issues, "valid": len(issues) == 0}

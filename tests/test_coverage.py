@@ -1,4 +1,5 @@
 """Coverage tests for Fusion-Finance."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -33,12 +34,10 @@ class TestMLXClient:
     async def test_chat_httpx_fallback(self):
         client = MLXClient(base_url="http://localhost:11434/v1")
         mock_http = MagicMock()
-        mock_http.get = AsyncMock(return_value=MagicMock(
-            status_code=200, json=lambda: {"data": [{"id": "qwen"}]}
-        ))
-        mock_http.post = AsyncMock(return_value=MagicMock(
-            status_code=200, json=lambda: {"choices": [{"message": {"content": "ok"}}]}
-        ))
+        mock_http.get = AsyncMock(return_value=MagicMock(status_code=200, json=lambda: {"data": [{"id": "qwen"}]}))
+        mock_http.post = AsyncMock(
+            return_value=MagicMock(status_code=200, json=lambda: {"choices": [{"message": {"content": "ok"}}]})
+        )
         client._httpx_client = mock_http
         client._client = None
         result = await client.chat([{"role": "user", "content": "hi"}])
@@ -88,10 +87,12 @@ class TestReport:
 
     def test_save_report(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             r = ReportGenerator()
             path = r.save_report("content", tmpdir, "test.md")
             assert path.endswith(".md")
+
 
 class TestAPV:
     def test_apv_calculation(self):

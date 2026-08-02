@@ -56,7 +56,9 @@ def render_waterfall(categories: list[str], values: list[float], title: str = "B
 
     elements = []
     zero_y = val_y(0)
-    elements.append(f'<line x1="{pa["x"]:.1f}" y1="{zero_y:.1f}" x2="{pa["x"] + pa["w"]:.1f}" y2="{zero_y:.1f}" stroke="#666" stroke-dasharray="4"/>')
+    elements.append(
+        f'<line x1="{pa["x"]:.1f}" y1="{zero_y:.1f}" x2="{pa["x"] + pa["w"]:.1f}" y2="{zero_y:.1f}" stroke="#666" stroke-dasharray="4"/>'
+    )
 
     for i, bar in enumerate(bars):
         x = pa["x"] + i * gap + gap / 2 - bar_w / 2
@@ -75,5 +77,5 @@ def render_waterfall(categories: list[str], values: list[float], title: str = "B
             f'<text x="{label_x:.1f}" y="{y_top - 5:.1f}" fill="#eee" text-anchor="middle" font-size="10">{val_label}</text>'
         )
 
-    title_svg = f'<text x="{SVG_WIDTH/2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{title}</text>'
+    title_svg = f'<text x="{SVG_WIDTH / 2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{title}</text>'
     return _svg_wrap(title_svg + "\n" + "\n".join(elements), title=title)

@@ -27,12 +27,18 @@ class MLXClient:
         self._httpx_client: Any = None
         if _HAS_FUSION_CORE:
             self._client = FusionMLXClient(base_url=self.base_url)
-        logger.info("MLXClient initialized, base_url=%s, model=%s, fusion_core=%s", self.base_url, self.default_model, _HAS_FUSION_CORE)
+        logger.info(
+            "MLXClient initialized, base_url=%s, model=%s, fusion_core=%s",
+            self.base_url,
+            self.default_model,
+            _HAS_FUSION_CORE,
+        )
 
     @property
     def httpx_client(self):
         if self._httpx_client is None:
             import httpx
+
             self._httpx_client = httpx.AsyncClient(base_url=self.base_url, timeout=120.0)
         return self._httpx_client
 

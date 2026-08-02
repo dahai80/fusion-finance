@@ -26,7 +26,9 @@ class CopilotEngine:
     def _build_system_prompt(self) -> str:
         return build_system_prompt(scenario=self.scenario, tool_prompt=self.registry.format_prompt())
 
-    async def chat(self, message: str, session_id: str = "default", history: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    async def chat(
+        self, message: str, session_id: str = "default", history: list[dict[str, str]] | None = None
+    ) -> dict[str, Any]:
         self.memory.add_message(session_id, "user", message)
 
         messages = history or self.memory.get_messages(session_id, limit=20)
@@ -49,17 +51,21 @@ class CopilotEngine:
                 logger.info("Copilot tool call: %s, args=%s", tool_name, tool_args)
 
                 tool_result = await self.registry.execute(tool_name, tool_args)
-                tool_calls_log.append({
-                    "tool": tool_name,
-                    "args": tool_args,
-                    "result_summary": json.dumps(tool_result, ensure_ascii=False, default=str)[:200],
-                })
+                tool_calls_log.append(
+                    {
+                        "tool": tool_name,
+                        "args": tool_args,
+                        "result_summary": json.dumps(tool_result, ensure_ascii=False, default=str)[:200],
+                    }
+                )
 
                 all_messages.append({"role": "assistant", "content": response})
-                all_messages.append({
-                    "role": "user",
-                    "content": f"工具 {tool_name} 执行结果:\n```json\n{json.dumps(tool_result, ensure_ascii=False, default=str)}\n```\n请根据结果继续分析或给出最终回复。",
-                })
+                all_messages.append(
+                    {
+                        "role": "user",
+                        "content": f"工具 {tool_name} 执行结果:\n```json\n{json.dumps(tool_result, ensure_ascii=False, default=str)}\n```\n请根据结果继续分析或给出最终回复。",
+                    }
+                )
             else:
                 break
 

@@ -103,7 +103,11 @@ async def calculate_var(req: VaRRequest):
 async def monte_carlo_var(req: MonteCarloVaRRequest):
     try:
         result = RiskModelingEngine.monte_carlo_var(
-            req.portfolio_value, req.mu, req.sigma, req.days, req.simulations,
+            req.portfolio_value,
+            req.mu,
+            req.sigma,
+            req.days,
+            req.simulations,
         )
         return asdict(result)
     except Exception as e:
@@ -125,7 +129,8 @@ async def get_stress_scenarios():
 async def run_stress_test(req: StressTestRequest):
     try:
         result = StressTestResult(
-            scenario=req.scenario, impact=req.impact,
+            scenario=req.scenario,
+            impact=req.impact,
             probability=req.probability,
             affected_factors=req.affected_factors,
             mitigations=req.mitigations,

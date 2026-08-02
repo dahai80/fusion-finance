@@ -30,7 +30,9 @@ def _plot_area() -> dict[str, float]:
     }
 
 
-def render_sensitivity_tornado(base_value: float, sensitivities: dict[str, list[float]], title: str = "Tornado Chart") -> str:
+def render_sensitivity_tornado(
+    base_value: float, sensitivities: dict[str, list[float]], title: str = "Tornado Chart"
+) -> str:
     if not sensitivities:
         return _svg_wrap('<text x="400" y="250" fill="#888" text-anchor="middle">No data</text>', title=title)
 
@@ -49,7 +51,9 @@ def render_sensitivity_tornado(base_value: float, sensitivities: dict[str, list[
 
     elements = []
     base_x = val_x(base_value)
-    elements.append(f'<line x1="{base_x:.1f}" y1="{pa["y"]:.1f}" x2="{base_x:.1f}" y2="{pa["y"] + pa["h"]:.1f}" stroke="#666" stroke-dasharray="4"/>')
+    elements.append(
+        f'<line x1="{base_x:.1f}" y1="{pa["y"]:.1f}" x2="{base_x:.1f}" y2="{pa["y"] + pa["h"]:.1f}" stroke="#666" stroke-dasharray="4"/>'
+    )
 
     for i, (label, vals) in enumerate(items):
         y = pa["y"] + i * gap + gap / 2 - bar_h / 2
@@ -66,5 +70,5 @@ def render_sensitivity_tornado(base_value: float, sensitivities: dict[str, list[
             f'<text x="{pa["x"] - 5:.1f}" y="{label_y:.1f}" fill="#ccc" text-anchor="end" font-size="11">{label}</text>'
         )
 
-    title_svg = f'<text x="{SVG_WIDTH/2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{title}</text>'
+    title_svg = f'<text x="{SVG_WIDTH / 2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{title}</text>'
     return _svg_wrap(title_svg + "\n" + "\n".join(elements), title=title)

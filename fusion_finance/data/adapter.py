@@ -17,7 +17,14 @@ class DataAdapter:
         self.validator = DataValidator()
         self.cache = DataCache(max_size=cache_max, default_ttl=cache_ttl)
 
-    def load_csv(self, source: str | Path, delimiter: str = "", encoding: str = "", has_header: bool = True, required_fields: list[str] | None = None) -> dict[str, Any]:
+    def load_csv(
+        self,
+        source: str | Path,
+        delimiter: str = "",
+        encoding: str = "",
+        has_header: bool = True,
+        required_fields: list[str] | None = None,
+    ) -> dict[str, Any]:
         cache_key = DataCache.make_key("csv", str(source), delimiter, encoding, has_header)
         cached = self.cache.get(cache_key)
         if cached is not None:
@@ -47,11 +54,15 @@ class DataAdapter:
                 sanitized[key] = val
         return sanitized
 
-    def validate_balance(self, assets: float, liabilities: float, equity: float, tolerance: float = 0.01) -> dict[str, Any]:
+    def validate_balance(
+        self, assets: float, liabilities: float, equity: float, tolerance: float = 0.01
+    ) -> dict[str, Any]:
         ok, msg = self.validator.validate_balance_sheet(assets, liabilities, equity, tolerance)
         return {"balanced": ok, "message": msg}
 
-    def check_completeness(self, data: list[dict[str, Any]], required_fields: list[str] | None = None) -> dict[str, Any]:
+    def check_completeness(
+        self, data: list[dict[str, Any]], required_fields: list[str] | None = None
+    ) -> dict[str, Any]:
         scores = self.validator.check_completeness(data, required_fields)
         overall = sum(scores.values()) / len(scores) if scores else 0.0
         return {"field_completeness": scores, "overall_score": overall}

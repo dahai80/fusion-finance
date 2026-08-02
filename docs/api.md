@@ -5,7 +5,15 @@
 ### `fusion_finance.modeling`
 
 ```python
-from fusion_finance.modeling import FinancialModelingEngine, DCFModel, CompsAnalysis, AdvancedModelingEngine, LBOModel, DDMModel, MergerModel
+from fusion_finance.modeling import (
+    FinancialModelingEngine,
+    DCFModel,
+    CompsAnalysis,
+    AdvancedModelingEngine,
+    LBOModel,
+    DDMModel,
+    MergerModel,
+)
 
 # DCF Valuation
 engine = FinancialModelingEngine()
@@ -38,9 +46,16 @@ merger = MergerModel(acquirer="A", target="T", acquirer_price=50, target_price=3
 from fusion_finance.statements import StatementAnalyzer, FinancialStatement
 
 analyzer = StatementAnalyzer()
-stmt = FinancialStatement(company="ABC", revenue=1000, gross_profit=400,
-                          operating_income=200, net_income=150,
-                          total_assets=2000, total_liabilities=800, equity=1200)
+stmt = FinancialStatement(
+    company="ABC",
+    revenue=1000,
+    gross_profit=400,
+    operating_income=200,
+    net_income=150,
+    total_assets=2000,
+    total_liabilities=800,
+    equity=1200,
+)
 analysis = analyzer.calculate_metrics(stmt)
 print(analysis.gross_margin, analysis.net_margin, analysis.roe)
 

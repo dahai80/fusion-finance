@@ -77,7 +77,7 @@ fusion-finance serve --port 8200
 
 ## 🌐 API Server
 
-Fusion-Finance v0.2.1 adds **report templates & multi-format export**, **project management with version control**, **enhanced audit with structured query & statistics**, **copilot scenario/insight prompts**, **API middleware (audit/rate-limit/auth)**, **SSE event streaming**, and **modular chart rendering**.
+Fusion-Finance v0.2.2 adds **report templates & multi-format export**, **project management with version control**, **enhanced audit with structured query & statistics**, **copilot scenario/insight prompts**, **API middleware (audit/rate-limit/auth)**, **SSE event streaming**, and **modular chart rendering**.
 
 ### Start / Stop
 
@@ -360,7 +360,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
-v0.2.1 新增：**Jinja2 报告模板与多格式导出**、**项目管理与版本控制**、**增强审计日志（结构化查询与统计）**、**Copilot 场景/洞察提示词**、**API 中间件（审计/限流/认证）**、**SSE 事件流**、**图表模块化渲染**。
+v0.2.2 新增：**Jinja2 报告模板与多格式导出**、**项目管理与版本控制**、**增强审计日志（结构化查询与统计）**、**Copilot 场景/洞察提示词**、**API 中间件（审计/限流/认证）**、**SSE 事件流**、**图表模块化渲染**。
 
 ### 快速开始
 

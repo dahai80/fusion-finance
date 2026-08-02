@@ -59,9 +59,9 @@ def render_candlestick(ohlcv: list[dict[str, float]], title: str = "Price Chart"
             f'<line x1="{x:.1f}" y1="{price_y(h):.1f}" x2="{x:.1f}" y2="{price_y(low):.1f}" stroke="{color}" stroke-width="1.5"/>'
         )
         elements.append(
-            f'<rect x="{x - bar_w/2:.1f}" y="{price_y(max(o, c)):.1f}" width="{bar_w:.1f}" '
+            f'<rect x="{x - bar_w / 2:.1f}" y="{price_y(max(o, c)):.1f}" width="{bar_w:.1f}" '
             f'height="{abs(price_y(o) - price_y(c)) or 1:.1f}" fill="{fill}" stroke="{color}" stroke-width="1"/>'
         )
 
-    title_svg = f'<text x="{SVG_WIDTH/2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{title}</text>'
+    title_svg = f'<text x="{SVG_WIDTH / 2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{title}</text>'
     return _svg_wrap(title_svg + "\n" + "\n".join(elements), title=title)
