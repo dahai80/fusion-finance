@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..ai_client import MLXClient
+from ..utils.parse_json import parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class FinancialStatement:
     equity: float = 0.0
     operating_cf: float = 0.0
     free_cf: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -41,12 +42,12 @@ class FinancialAnalysis:
     debt_ratio: float = 0.0
     current_ratio: float = 0.0
     pe_ratio: float = 0.0
-    key_findings: List[str] = field(default_factory=list)
-    risks: List[str] = field(default_factory=list)
+    key_findings: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
 
 
 class StatementAnalyzer:
-    def __init__(self, mlx: Optional[MLXClient] = None):
+    def __init__(self, mlx: MLXClient | None = None):
         self.mlx = mlx or MLXClient()
 
     def calculate_metrics(self, stmt: FinancialStatement) -> FinancialAnalysis:
@@ -62,7 +63,7 @@ class StatementAnalyzer:
             analysis.debt_ratio = round(stmt.total_liabilities / stmt.total_assets * 100, 2) if stmt.total_liabilities else 0
         return analysis
 
-    async def analyze_statements(self, company: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def analyze_statements(self, company: str, data: dict[str, Any]) -> dict[str, Any]:
         prompt = f"""分析{company}的财务数据并生成分析报告。
 
 财务数据: {json.dumps(data, ensure_ascii=False)}
@@ -73,11 +74,11 @@ class StatementAnalyzer:
                 {"role": "system", "content": "你是一位资深财务分析师，精通财务报表分析。"},
                 {"role": "user", "content": prompt},
             ], temperature=0.1)
-            return self._parse_json(response) or {"company": company}
+            return parse_json(response) or {"company": company}
         except Exception as e:
             return {"error": str(e)}
 
-    def validate_balance_sheet(self, statements: List[FinancialStatement]) -> List[str]:
+    def validate_balance_sheet(self, statements: list[FinancialStatement]) -> list[str]:
         issues = []
         for stmt in statements:
             if stmt.total_assets and stmt.total_liabilities is not None and stmt.equity is not None:
@@ -85,14 +86,3 @@ class StatementAnalyzer:
                 if diff > 0.01 * stmt.total_assets:
                     issues.append(f"{stmt.period}: 资产负债表不平衡")
         return issues
-
-    def _parse_json(self, text: str) -> Any:
-        text = text.strip()
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0].strip()
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return None

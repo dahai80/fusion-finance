@@ -5,24 +5,22 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 
 from ..ai_client import MLXClient
-from ..modeling.engine import DCFModel, CompsAnalysis
+from ..modeling.engine import CompsAnalysis, DCFModel
 
 logger = logging.getLogger(__name__)
 
 
 class ReportGenerator:
-    def __init__(self, mlx: Optional[MLXClient] = None):
+    def __init__(self, mlx: MLXClient | None = None):
         self.mlx = mlx or MLXClient()
 
-    def generate_valuation_report(self, company: str, dcf: DCFModel, comps: Optional[CompsAnalysis] = None) -> str:
+    def generate_valuation_report(self, company: str, dcf: DCFModel, comps: CompsAnalysis | None = None) -> str:
         lines = [f"# {company} 估值报告", f"**生成日期**: {datetime.now().strftime('%Y-%m-%d')}", ""]
         lines.append("## DCF 估值")
-        lines.append(f"| 指标 | 数值 |")
-        lines.append(f"|------|------|")
+        lines.append("| 指标 | 数值 |")
+        lines.append("|------|------|")
         lines.append(f"| 预测期现金流现值 | {dcf.calculate().get('pv_fcf', 0):,.2f} |")
         lines.append(f"| 终值 | {dcf.calculate().get('terminal_value', 0):,.2f} |")
         lines.append(f"| 企业价值 | {dcf.calculate().get('enterprise_value', 0):,.2f} |")
@@ -65,10 +63,10 @@ class ReportGenerator:
         lines.append("3. 监管政策变化")
         lines.append("")
         lines.append("---")
-        lines.append(f"*由 Fusion-Finance 自动生成 | 仅供内部参考*")
+        lines.append("*由 Fusion-Finance 自动生成 | 仅供内部参考*")
         return "\n".join(lines)
 
-    async def generate_research_report(self, company: str, industry: str, data: Dict) -> str:
+    async def generate_research_report(self, company: str, industry: str, data: dict) -> str:
         prompt = f"""生成{company}({industry})的深度投研报告。
 
 数据: {json.dumps(data, ensure_ascii=False)[:2000]}

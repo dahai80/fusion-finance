@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
 
 
 @dataclass
@@ -25,15 +24,15 @@ class StressTestResult:
     scenario: str = ""
     impact: float = 0.0
     probability: str = "low"
-    affected_factors: List[str] = field(default_factory=list)
-    mitigations: List[str] = field(default_factory=list)
+    affected_factors: list[str] = field(default_factory=list)
+    mitigations: list[str] = field(default_factory=list)
 
 
 class RiskModelingEngine:
     """高级风控引擎 — VaR、压力测试、情景分析。"""
 
     @staticmethod
-    def calculate_var(returns: List[float], portfolio_value: float = 1_000_000, confidence: float = 0.95) -> VaRResult:
+    def calculate_var(returns: list[float], portfolio_value: float = 1_000_000, confidence: float = 0.95) -> VaRResult:
         if not returns:
             return VaRResult()
         sorted_rets = sorted(returns)
@@ -53,12 +52,11 @@ class RiskModelingEngine:
 
     @staticmethod
     def monte_carlo_var(portfolio_value: float, mu: float, sigma: float, days: int = 252, simulations: int = 10000) -> VaRResult:
-        import random
         returns = [random.gauss(mu / 252, sigma / math.sqrt(252)) for _ in range(simulations)]
         return RiskModelingEngine.calculate_var(returns, portfolio_value)
 
     @staticmethod
-    def stress_test_scenarios() -> List[StressTestResult]:
+    def stress_test_scenarios() -> list[StressTestResult]:
         return [
             StressTestResult(scenario="利率上升200bp", impact=-0.15, probability="medium",
                            affected_factors=["债券价格", "贷款成本", "净息差"],
