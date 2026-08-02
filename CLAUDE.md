@@ -53,12 +53,15 @@ fusion_finance/
 │   ├── engine.py         # FinancialModelingEngine, DCFModel, CompsAnalysis
 │   ├── advanced.py       # AdvancedModelingEngine, LBOModel, DDMModel, MergerModel
 │   ├── valuation.py      # APVModel, EVAModel, RIModel (pure dataclass models, no AI)
-│   └── portfolio.py      # PortfolioOptimizer, Bond, TechnicalIndicators (pure math, no AI)
+│   ├── portfolio.py      # PortfolioOptimizer, BlackLittermanOptimizer, Bond, NelsonSiegelCurve, TechnicalIndicators
+│   └── scenarios.py      # ScenarioManager (bear/base/bull)
 ├── statements/
 │   └── analyzer.py       # StatementAnalyzer, FinancialStatement, FinancialAnalysis
 ├── risk/
 │   ├── engine.py         # RiskComplianceEngine, KYCCheck, CreditAssessment
-│   └── advanced_risk.py  # RiskModelingEngine, VaRResult, StressTestResult (pure math)
+│   ├── advanced_risk.py  # RiskModelingEngine, VaRResult, StressTestResult (pure math)
+│   ├── sanctions.py      # SanctionsEngine (Levenshtein + keyword + exact matching)
+│   └── entity_resolution.py  # EntityGraph, UBO tracing, PEP scanning
 ├── report/
 │   └── reports.py        # ReportGenerator — Markdown report templates + AI research
 ├── copilot/
@@ -70,10 +73,17 @@ fusion_finance/
 │   ├── candlestick.py    # render_candlestick()
 │   ├── waterfall.py      # render_waterfall()
 │   └── sensitivity.py    # render_sensitivity_tornado()
+├── data/
+│   ├── adapter.py        # DataAdapter, CSVLoader, DataValidator
+│   ├── market_feed.py    # MarketFeedSimulator (A-stock/HK-stock simulated quotes)
+│   └── cache.py          # compute_cache decorator (LRU + TTL)
+├── project/
+│   └── manager.py        # ProjectManager, VersionControl, ProjectExporter
 ├── api/
 │   ├── app.py            # FastAPI app with middleware stack
 │   ├── middleware.py      # AuditMiddleware, RateLimitMiddleware, APIKeyMiddleware
-│   └── sse.py            # EventBus, SSE routes (/events/insights, /events/alerts)
+│   ├── sse.py            # EventBus, SSE routes (/events/insights, /events/alerts)
+│   └── routes/           # API route modules (copilot, chart, project, data, audit)
 └── utils/
     └── audit.py          # AuditTrail — JSONL-based audit logging to ~/.fusion/finance/
 ```
@@ -96,9 +106,13 @@ AI-dependent (requires fusion-mlx running):
 
 Pure math (no AI needed, runs offline):
 - All `*.calculate()` methods on dataclass models
-- `PortfolioOptimizer`, `Bond`, `TechnicalIndicators` (portfolio.py)
+- `PortfolioOptimizer`, `BlackLittermanOptimizer`, `Bond`, `NelsonSiegelCurve`, `TechnicalIndicators` (portfolio.py)
 - `APVModel`, `EVAModel`, `RIModel` (valuation.py)
+- `SanctionsEngine` screening (sanctions.py)
+- `EntityGraph` resolution, UBO/PEP tracing (entity_resolution.py)
 - `RiskModelingEngine.calculate_var()`, `monte_carlo_var()`, `stress_test_scenarios()`
+- `MarketFeedSimulator` quote generation (market_feed.py)
+- `compute_cache` decorator (cache.py)
 - `StatementAnalyzer.calculate_metrics()`, `validate_balance_sheet()`
 - `ReportGenerator.generate_valuation_report()`, `generate_pitchbook()`, `save_report()`
 - `AuditTrail` operations
@@ -113,7 +127,10 @@ Pure math (no AI needed, runs offline):
 
 ## Test Conventions
 
-- Two test files: `test_core.py` (core engine/model tests) and `test_coverage.py` (advanced models, portfolio, bond, technical indicators)
-- Additional: `test_phase2.py` (copilot, chart, data), `test_phase3.py` (report templates, project, audit), `test_phase3plus.py` (prompts, middleware, SSE, chart modules)
+- Core test files: `test_core.py`, `test_coverage.py`, `test_api.py`
+- Phase test files: `test_phase2.py` (copilot, chart, data), `test_phase3.py` (report templates, project, audit), `test_phase3plus.py` (prompts, middleware, SSE, chart modules), `test_phase5.py` (BL, yield curve, sanctions, entity, market feed, batch DCF, cache)
+- Coverage boost: `test_coverage_boost.py` (scenarios, tools, formatter, API routes)
+- 308 tests total, 80%+ coverage
 - AI-dependent tests use `MockMLX` with `chat = AsyncMock(return_value='{"test":"ok"}')` — they don't require fusion-mlx running
 - Pure math tests call `.calculate()` directly
+- API route tests use `httpx.AsyncClient` with `ASGITransport(app=create_app())`

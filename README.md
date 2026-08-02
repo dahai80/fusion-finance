@@ -10,7 +10,8 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/Offline-First-important" alt="Offline">
-  <img src="https://img.shields.io/badge/tests-175%20passed-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-308%20passed-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-80%25-brightgreen" alt="Coverage">
   <img src="https://img.shields.io/badge/API-FastAPI-blue" alt="API">
 </p>
 
@@ -37,11 +38,16 @@
 | **Merger Model** | ✅ | ✅ | `modeling/advanced.py` |
 | **APV / EVA / RI** | ❌ | ✅ | `modeling/valuation.py` |
 | **Portfolio Optimizer** | ❌ | ✅ | `modeling/portfolio.py` |
+| **Black-Litterman** | ❌ | ✅ | `modeling/portfolio.py` |
+| **Bond / Yield Curve** | ❌ | ✅ | `modeling/portfolio.py` |
+| **Technical Indicators** | ❌ | ✅ | `modeling/portfolio.py` |
 | Financial Metrics | ✅ | ✅ | `statements/analyzer.py` |
 | Balance Sheet Validation | ✅ | ✅ | `statements/analyzer.py` |
 | KYC Screening | ✅ | ✅ | `risk/engine.py` |
 | Credit Assessment | ✅ | ✅ | `risk/engine.py` |
 | Compliance Check | ✅ | ✅ | `risk/engine.py` |
+| **Sanctions Screening** | ❌ | ✅ | `risk/sanctions.py` |
+| **Entity Resolution** | ❌ | ✅ | `risk/entity_resolution.py` |
 | **VaR Calculation** | ✅ | ✅ | `risk/advanced_risk.py` |
 | **Stress Testing** | ✅ | ✅ | `risk/advanced_risk.py` |
 | Valuation Report | ✅ | ✅ | `report/reports.py` |
@@ -50,6 +56,8 @@
 | **AI Copilot** | ❌ | ✅ | `api/routes/copilot.py` |
 | **SVG Charts** | ❌ | ✅ | `api/routes/chart.py` |
 | **Project Management** | ❌ | ✅ | `api/routes/project.py` |
+| **Market Feed Simulator** | ❌ | ✅ | `data/market_feed.py` |
+| **Compute Cache** | ❌ | ✅ | `data/cache.py` |
 | **Audit Trail** | ✅ | ✅ | `utils/audit.py` |
 | **License** | Enterprise | ✅ **MIT (free)** | — |
 
@@ -77,7 +85,7 @@ fusion-finance serve --port 8200
 
 ## 🌐 API Server
 
-Fusion-Finance v0.2.2 adds **report templates & multi-format export**, **project management with version control**, **enhanced audit with structured query & statistics**, **copilot scenario/insight prompts**, **API middleware (audit/rate-limit/auth)**, **SSE event streaming**, and **modular chart rendering**.
+Fusion-Finance v0.3.0 adds **Black-Litterman portfolio optimization**, **Nelson-Siegel yield curve model**, **sanctions screening engine**, **entity resolution (UBO/PEP)**, **market feed simulator**, and **compute cache with TTL** — on top of the v0.2.2 features: report templates & multi-format export, project management with version control, enhanced audit, copilot scenario/insight prompts, API middleware, SSE event streaming, and modular chart rendering.
 
 ### Start / Stop
 
@@ -144,7 +152,9 @@ Swagger docs: `http://localhost:8200/docs`
 | `EVAModel` | Economic value added |
 | `RIModel` | Residual income model |
 | `PortfolioOptimizer` | Mean-variance portfolio optimization |
+| `BlackLittermanOptimizer` | Black-Litterman posterior returns + mean-variance |
 | `Bond` | Bond pricing and yield calculation |
+| `NelsonSiegelCurve` | Nelson-Siegel yield curve with random search calibration |
 | `TechnicalIndicators` | SMA, EMA, RSI, MACD, Bollinger Bands |
 
 ### 2. Statement Analysis (`statements/`)
@@ -163,6 +173,8 @@ Swagger docs: `http://localhost:8200/docs`
 |-----------|-------------|
 | `KYCCheck` | KYC due diligence screening |
 | `CreditAssessment` | Credit scoring and rating |
+| `SanctionsEngine` | Sanctions list matching (Levenshtein + keyword + exact) |
+| `EntityGraph` | Entity resolution, UBO tracing, PEP scanning |
 | `VaRResult` | Value at Risk calculation (95%/99%) |
 | `StressTestResult` | Stress test scenario definitions |
 | `calculate_var()` | Historical VaR from return series |
@@ -209,6 +221,8 @@ Swagger docs: `http://localhost:8200/docs`
 | `CSVLoader` | CSV/TSV loading with auto-encoding and delimiter detection |
 | `DataCache` | LRU cache with TTL expiration |
 | `DataValidator` | Row validation, balance sheet check, completeness scoring |
+| `MarketFeedSimulator` | A-stock/HK-stock simulated quotes, OHLCV generation |
+| `compute_cache` | Decorator-based LRU cache with TTL for expensive computations |
 
 ### 8. Shared Utilities (`utils/`)
 
@@ -299,13 +313,15 @@ Commands:
 
 ```bash
 pip install -e ".[test]"
-pytest tests/ -v                              # All tests
+pytest tests/ -v                              # All tests (308 passed)
 pytest tests/test_core.py -v                  # Core tests
 pytest tests/test_api.py -v                   # API endpoint tests
 pytest tests/test_coverage.py -v              # Advanced model tests
 pytest tests/test_phase2.py -v               # Phase 2: copilot, chart, data
 pytest tests/test_phase3.py -v               # Phase 3: report templates, project, audit
 pytest tests/test_phase3plus.py -v          # Phase 3+: prompts, middleware, SSE, chart modules
+pytest tests/test_phase5.py -v               # Phase 5: BL, yield curve, sanctions, entity, market feed
+pytest tests/test_coverage_boost.py -v       # Coverage boost: scenarios, tools, formatter, API routes
 pytest tests/ --cov=fusion_finance --cov-report=html
 ```
 
@@ -350,7 +366,8 @@ MIT License. See [LICENSE](LICENSE) for details.
   <img src="https://img.shields.io/badge/license-MIT-green" alt="许可证">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/离线优先-核心特性-important" alt="离线优先">
-  <img src="https://img.shields.io/badge/测试-175%20通过-brightgreen" alt="测试">
+  <img src="https://img.shields.io/badge/测试-308%20通过-brightgreen" alt="测试">
+  <img src="https://img.shields.io/badge/覆盖率-80%25-brightgreen" alt="覆盖率">
   <img src="https://img.shields.io/badge/API-FastAPI-blue" alt="API">
 </p>
 
@@ -360,7 +377,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
-v0.2.2 新增：**Jinja2 报告模板与多格式导出**、**项目管理与版本控制**、**增强审计日志（结构化查询与统计）**、**Copilot 场景/洞察提示词**、**API 中间件（审计/限流/认证）**、**SSE 事件流**、**图表模块化渲染**。
+v0.3.0 新增：**Black-Litterman 组合优化**、**Nelson-Siegel 收益率曲线**、**制裁名单匹配引擎**、**实体解析（UBO/PEP）**、**行情数据模拟器**、**计算缓存（TTL）**。v0.2.2 功能：Jinja2 报告模板与多格式导出、项目管理与版本控制、增强审计日志、Copilot 场景/洞察提示词、API 中间件、SSE 事件流、图表模块化渲染。
 
 ### 快速开始
 
@@ -395,13 +412,13 @@ API 文档：`http://localhost:8200/docs`
 
 | 模块 | 功能 | 关键能力 |
 |------|------|----------|
-| 📊 **财务建模** | DCF/LBO/DDM/并购/敏感性/蒙特卡洛 | 12 种模型 + 交互式会话 |
+| 📊 **财务建模** | DCF/LBO/DDM/并购/敏感性/蒙特卡洛 | 15 种模型 + Black-Litterman + 收益率曲线 |
 | 📋 **财报分析** | 指标计算/勾稽校验/AI 分析 | 10+ 财务指标 |
-| 🛡️ **风控合规** | KYC/信用评估/VaR/压力测试 | 4 大风控模型 |
+| 🛡️ **风控合规** | KYC/信用评估/制裁名单/实体解析/VaR/压力测试 | 6 大风控模型 |
 | 📄 **报告生成** | 估值报告/PitchBook/投研报告/董事会材料 | 4 种模板 + 6 种格式导出 |
 | 🤖 **AI Copilot** | 自然语言交互/工具调用/场景提示 | ReAct 模式 + 12 工具 + 5 场景 |
 | 📈 **图表渲染** | K线/热力图/瀑布图/龙卷风图 | 模块化 SVG 渲染 |
-| 📥 **数据适配** | CSV导入/验证/缓存 | LRU + TTL 缓存 |
+| 📥 **数据适配** | CSV导入/验证/缓存/行情模拟/计算缓存 | LRU + TTL + A股/港股模拟 |
 | 🔍 **审计日志** | 操作记录/查询/统计 | JSONL 持久化 + 结构化查询 |
 | 📁 **项目管理** | CRUD/快照/版本/导出 | SHA256 版本控制 + ZIP 导出 |
 | 🔐 **API 中间件** | 审计/限流/认证/SSE 事件流 | 自动审计记录 + 实时推送 |

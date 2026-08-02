@@ -264,3 +264,28 @@ class FinancialModelingEngine:
             "max": round(values[-1], 2),
             "simulations": simulations,
         }
+
+    @staticmethod
+    def batch_dcf(models_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        results = []
+        for i, data in enumerate(models_data):
+            try:
+                model = DCFModel(
+                    company=data.get("company", f"Company_{i}"),
+                    forecast_years=data.get("forecast_years", 5),
+                    revenue=data.get("revenue", []),
+                    ebit_margin=data.get("ebit_margin", 0.2),
+                    tax_rate=data.get("tax_rate", 0.25),
+                    wacc=data.get("wacc", 0.1),
+                    terminal_growth=data.get("terminal_growth", 0.03),
+                    net_debt=data.get("net_debt", 0),
+                    shares_outstanding=data.get("shares_outstanding", 1),
+                )
+                result = model.calculate()
+                result["company"] = data.get("company", f"Company_{i}")
+                results.append(result)
+            except Exception as e:
+                logger.warning("batch_dcf failed for item %d: %s", i, e)
+                results.append({"company": data.get("company", f"Company_{i}"), "error": str(e)})
+        logger.info("batch_dcf: processed %d models", len(results))
+        return results

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from ...ai_client import MLXClient
 from ...modeling.advanced import AdvancedModelingEngine, DDMModel, MergerModel
 from ...modeling.engine import DCFModel, FinancialModelingEngine, InteractiveDCFSession
-from ...modeling.portfolio import PortfolioOptimizer
+from ...modeling.portfolio import BlackLittermanOptimizer, PortfolioOptimizer, YieldCurve
 from ...modeling.scenarios import ScenarioManager
 from ...modeling.valuation import APVModel, EVAModel, RIModel
 
@@ -434,4 +434,90 @@ async def scenario_compare(req: ScenarioRequest):
         }
     except Exception as e:
         logger.error("scenario_compare failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BatchDCFRequest(BaseModel):
+    models: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@router.post("/batch-dcf", summary="批量DCF计算(纯数学)")
+async def batch_dcf(req: BatchDCFRequest):
+    try:
+        results = FinancialModelingEngine.batch_dcf(req.models)
+        return {"results": results, "count": len(results)}
+    except Exception as e:
+        logger.error("batch_dcf failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BLRequest(BaseModel):
+    market_weights: list[float] = Field(default_factory=list)
+    cov_matrix: list[list[float]] = Field(default_factory=list)
+    risk_aversion: float = 2.5
+    views: list[list[float]] | None = None
+    view_returns: list[float] | None = None
+    tau: float = 0.05
+    risk_free: float = 0.03
+
+
+class YieldCurveRequest(BaseModel):
+    maturities: list[float] = Field(default_factory=list)
+    beta0: float = 0.04
+    beta1: float = -0.02
+    beta2: float = -0.01
+    beta3: float = 0.0
+
+
+class YieldCurveCalibrateRequest(BaseModel):
+    observed_maturities: list[float] = Field(default_factory=list)
+    observed_rates: list[float] = Field(default_factory=list)
+
+
+@router.post("/portfolio/black-litterman", summary="Black-Litterman组合优化(纯数学)")
+async def black_litterman(req: BLRequest):
+    try:
+        posterior = BlackLittermanOptimizer.posterior_returns(
+            req.market_weights,
+            req.cov_matrix,
+            req.risk_aversion,
+            req.views,
+            req.view_returns,
+            req.tau,
+        )
+        if not posterior:
+            raise HTTPException(status_code=400, detail="参数不足或矩阵不可逆")
+        result = BlackLittermanOptimizer.optimize(
+            posterior,
+            req.cov_matrix,
+            req.risk_aversion,
+            req.risk_free,
+        )
+        return {"posterior_returns": posterior, **result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("black_litterman failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/yield-curve", summary="Nelson-Siegel收益率曲线(纯数学)")
+async def yield_curve(req: YieldCurveRequest):
+    try:
+        yc = YieldCurve(beta0=req.beta0, beta1=req.beta1, beta2=req.beta2, beta3=req.beta3)
+        rates = yc.nelson_siegel(req.maturities)
+        return {"maturities": req.maturities, "rates": rates}
+    except Exception as e:
+        logger.error("yield_curve failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/yield-curve/calibrate", summary="Nelson-Siegel参数校准(纯数学)")
+async def yield_curve_calibrate(req: YieldCurveCalibrateRequest):
+    try:
+        yc = YieldCurve()
+        params = yc.calibrate(req.observed_maturities, req.observed_rates)
+        return params
+    except Exception as e:
+        logger.error("yield_curve_calibrate failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

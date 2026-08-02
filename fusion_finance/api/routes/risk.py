@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -9,6 +10,8 @@ from pydantic import BaseModel, Field
 from ...ai_client import MLXClient
 from ...risk.advanced_risk import RiskModelingEngine, StressTestResult
 from ...risk.engine import RiskComplianceEngine
+from ...risk.entity_resolution import EntityResolver
+from ...risk.sanctions import SanctionsEngine
 
 logger = logging.getLogger(__name__)
 
@@ -139,4 +142,75 @@ async def run_stress_test(req: StressTestRequest):
         return asdict(result)
     except Exception as e:
         logger.error("run_stress_test failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SanctionsScreenRequest(BaseModel):
+    entity: str
+    threshold: float = 0.6
+
+
+class SanctionsBatchRequest(BaseModel):
+    entities: list[str] = Field(default_factory=list)
+    threshold: float = 0.6
+
+
+class EntityGraphRequest(BaseModel):
+    nodes: list[dict[str, Any]] = Field(default_factory=list)
+    edges: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class UBORequest(BaseModel):
+    nodes: list[dict[str, Any]] = Field(default_factory=list)
+    edges: list[dict[str, Any]] = Field(default_factory=list)
+    target_entity_id: str = ""
+    threshold: float = 0.25
+
+
+_sanctions_engine = SanctionsEngine()
+_entity_resolver = EntityResolver()
+
+
+@router.post("/sanctions", summary="制裁名单筛查(纯逻辑)")
+async def sanctions_screen(req: SanctionsScreenRequest):
+    try:
+        matches = _sanctions_engine.screen(req.entity, req.threshold)
+        return {"entity": req.entity, "matches": [asdict(m) for m in matches], "hit_count": len(matches)}
+    except Exception as e:
+        logger.error("sanctions_screen failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sanctions/batch", summary="批量制裁名单筛查(纯逻辑)")
+async def sanctions_batch(req: SanctionsBatchRequest):
+    try:
+        results = _sanctions_engine.screen_batch(req.entities, req.threshold)
+        return {
+            "results": {k: [asdict(m) for m in v] for k, v in results.items()},
+            "total_entities": len(req.entities),
+        }
+    except Exception as e:
+        logger.error("sanctions_batch failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/entity-graph", summary="实体关系图谱(纯逻辑)")
+async def entity_graph(req: EntityGraphRequest):
+    try:
+        graph = _entity_resolver.build_from_structure({"nodes": req.nodes, "edges": req.edges})
+        return graph.to_dict()
+    except Exception as e:
+        logger.error("entity_graph failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/entity-graph/ubo", summary="UBO最终受益人解析(纯逻辑)")
+async def resolve_ubo(req: UBORequest):
+    try:
+        graph = _entity_resolver.build_from_structure({"nodes": req.nodes, "edges": req.edges})
+        ubos = _entity_resolver.resolve_ubo(graph, req.target_entity_id, req.threshold)
+        pep_connections = _entity_resolver.find_pep_connections(graph)
+        return {"target_entity_id": req.target_entity_id, "ubos": ubos, "pep_connections": pep_connections}
+    except Exception as e:
+        logger.error("resolve_ubo failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

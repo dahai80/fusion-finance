@@ -10,12 +10,14 @@ from pydantic import BaseModel, Field
 
 from ...config import CACHE_DIR
 from ...data import DataAdapter
+from ...data.market_feed import MarketDataAdapter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 _adapter = DataAdapter()
+_market = MarketDataAdapter()
 
 
 class ImportResponse(BaseModel):
@@ -124,4 +126,48 @@ async def delete_cache(key: str):
         raise
     except Exception as e:
         logger.error("delete_cache failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class MarketQuoteRequest(BaseModel):
+    market: str = "A"
+
+
+class OHLCVRequest(BaseModel):
+    symbol: str = "600519"
+    base_price: float = 100.0
+    bars: int = 60
+
+
+class TechnicalsRequest(BaseModel):
+    ohlcv: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@router.get("/market/quotes", summary="获取模拟行情报价")
+async def market_quotes(market: str = "A"):
+    try:
+        quotes = _market.get_quotes(market)
+        return {"market": market, "quotes": quotes, "count": len(quotes)}
+    except Exception as e:
+        logger.error("market_quotes failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/market/ohlcv", summary="获取模拟OHLCV数据")
+async def market_ohlcv(req: OHLCVRequest):
+    try:
+        ohlcv = _market.get_ohlcv(req.symbol, req.base_price, req.bars)
+        return {"symbol": req.symbol, "ohlcv": ohlcv, "count": len(ohlcv)}
+    except Exception as e:
+        logger.error("market_ohlcv failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/market/technicals", summary="计算技术指标")
+async def market_technicals(req: TechnicalsRequest):
+    try:
+        result = _market.compute_technicals(req.ohlcv)
+        return result
+    except Exception as e:
+        logger.error("market_technicals failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

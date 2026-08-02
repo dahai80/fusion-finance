@@ -61,3 +61,27 @@ class DataCache:
     def make_key(*parts: Any) -> str:
         raw = json.dumps(parts, sort_keys=True, default=str)
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+_compute_cache = DataCache(max_size=128, default_ttl=1800)
+
+
+def compute_cache(ttl: int = 0):
+    def decorator(fn):
+        def wrapper(*args, **kwargs):
+            key_parts = [fn.__name__, args, sorted(kwargs.items())]
+            cache_key = DataCache.make_key(*key_parts)
+            cached = _compute_cache.get(cache_key)
+            if cached is not None:
+                logger.debug("compute_cache hit: %s", fn.__name__)
+                return cached
+            result = fn(*args, **kwargs)
+            _compute_cache.set(cache_key, result, ttl or _compute_cache._default_ttl)
+            logger.debug("compute_cache set: %s", fn.__name__)
+            return result
+
+        wrapper.__name__ = fn.__name__
+        wrapper.__wrapped__ = fn
+        return wrapper
+
+    return decorator
