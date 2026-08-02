@@ -20,7 +20,7 @@ class MLXClient:
     - Returns plain text content (not LLMResponse)
     """
 
-    def __init__(self, model: str = "", base_url: str = "http://localhost:8000/v1"):
+    def __init__(self, model: str = "", base_url: str = "http://localhost:11434/v1"):
         self.model = model
         self._inner = _FusionMLXClient(base_url=base_url)
 

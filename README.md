@@ -142,7 +142,7 @@ fusion-finance report valuation "Apple" --output ./reports
 │  AdvancedModeling  │ RiskModelingEngine │ ReportGenerator      │
 ├──────────────────────────────────────────────────────────────┤
 │                    AI Backend (fusion-mlx)                     │
-│  HTTP → http://localhost:8000/v1/chat/completions             │
+│  HTTP → http://localhost:11434/v1/chat/completions           │
 │  100% local, zero data upload                                │
 └──────────────────────────────────────────────────────────────┘
 ```
