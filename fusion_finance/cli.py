@@ -1,16 +1,16 @@
-"""Fusion-Finance CLI 入口。"""
-
 from __future__ import annotations
 
 import asyncio
+
 import click
 
-from . import __version__, __app_name__
+from . import __app_name__, __version__
 from .ai_client import MLXClient
-from .modeling import FinancialModelingEngine, DCFModel
-from .statements import StatementAnalyzer, FinancialStatement
-from .risk import RiskComplianceEngine
+from .config import DEFAULT_HOST, DEFAULT_PORT
+from .modeling import DCFModel, FinancialModelingEngine
 from .report import ReportGenerator
+from .risk import RiskComplianceEngine
+from .statements import FinancialStatement, StatementAnalyzer
 
 
 @click.group()
@@ -125,6 +125,23 @@ def report_valuation(ctx, company, output):
     content = gen.generate_valuation_report(company, dcf)
     path = gen.save_report(content, output)
     click.echo(f"📄 估值报告已保存: {path}")
+
+
+@cli.command("serve")
+@click.option("--host", "-h", default=DEFAULT_HOST, help="Bind host")
+@click.option("--port", "-p", default=DEFAULT_PORT, type=int, help="Bind port")
+@click.option("--reload", is_flag=True, help="Enable auto-reload")
+def serve(host, port, reload):
+    """启动 FastAPI 服务。"""
+    import uvicorn
+    click.echo(f"🚀 Fusion-Finance API starting on {host}:{port}")
+    uvicorn.run(
+        "fusion_finance.api.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
 
 
 def main():

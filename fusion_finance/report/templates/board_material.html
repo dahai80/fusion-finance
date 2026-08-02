@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company }} — 董事会材料</title>
+<style>
+  :root { --bg: #0f0f1a; --card: #1a1a2e; --accent: #00b894; --green: #2ecc71; --red: #e74c3c; --text: #e0e0e0; --muted: #888; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+  .header { text-align: center; margin-bottom: 40px; }
+  .header h1 { font-size: 32px; color: var(--accent); margin-bottom: 8px; }
+  .header .subtitle { color: var(--muted); font-size: 16px; }
+  .confidential { display: inline-block; background: var(--red); color: #fff; padding: 2px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
+  h2 { font-size: 20px; color: var(--accent); margin: 28px 0 12px; border-bottom: 1px solid #2a2a3e; padding-bottom: 6px; }
+  .card { background: var(--card); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #2a2a3e; }
+  th { color: var(--accent); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .kpi { background: var(--card); border-radius: 8px; padding: 16px; text-align: center; }
+  .kpi .label { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+  .kpi .number { font-size: 22px; font-weight: 700; }
+  .kpi .number.up { color: var(--green); }
+  .kpi .number.down { color: var(--red); }
+  .kpi .number.neutral { color: var(--accent); }
+  .action-items { list-style: none; }
+  .action-items li { padding: 8px 0; border-bottom: 1px solid #2a2a3e; }
+  .action-items li strong { color: var(--accent); }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #2a2a3e; color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="confidential">CONFIDENTIAL</div>
+    <h1>{{ company }} 董事会材料</h1>
+    <div class="subtitle">{{ title }} | {{ date }}</div>
+  </div>
+
+  <h2>核心指标</h2>
+  <div class="kpi-grid">
+    {% for item in kpis %}
+    <div class="kpi">
+      <div class="label">{{ item.label }}</div>
+      <div class="number {{ item.trend }}">{{ item.value }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if chart_svg %}
+  <div style="margin: 16px 0;">{{ chart_svg }}</div>
+  {% endif %}
+
+  {% if financial_table %}
+  <h2>财务摘要</h2>
+  <div class="card">
+    <table>
+      <thead><tr>
+        {% for col in financial_table.columns %}
+        <th>{{ col }}</th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for row in financial_table.rows %}
+        <tr>
+          {% for cell in row %}
+          <td class="num">{{ cell }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if action_items %}
+  <h2>待决事项</h2>
+  <div class="card">
+    <ul class="action-items">
+      {% for item in action_items %}
+      <li><strong>{{ item.owner }}</strong>: {{ item.action }} (截止: {{ item.deadline }})</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if risk_summary %}
+  <h2>风险提示</h2>
+  <div class="card">
+    <ul class="action-items">
+      {% for item in risk_summary %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="footer">由 Fusion-Finance 于 {{ timestamp }} 自动生成 | 仅供董事会内部使用</div>
+</div>
+</body>
+</html>

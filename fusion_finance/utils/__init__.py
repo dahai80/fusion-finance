@@ -1,2 +1,3 @@
-from .audit import AuditTrail, AuditEntry
+from .audit import AuditEntry, AuditTrail
+
 __all__ = ["AuditTrail", "AuditEntry"]

@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..ai_client import MLXClient
+from ..utils.parse_json import parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +23,12 @@ class LBOModel:
     interest_rate: float = 0.05
     exit_year: int = 5
     exit_multiple: float = 10.0
-    ebitda: List[float] = field(default_factory=list)
+    ebitda: list[float] = field(default_factory=list)
     irr: float = 0.0
     moic: float = 0.0
-    assumptions: Dict[str, Any] = field(default_factory=dict)
+    assumptions: dict[str, Any] = field(default_factory=dict)
 
-    def calculate(self) -> Dict[str, float]:
+    def calculate(self) -> dict[str, float]:
         if not self.ebitda:
             return {"error": "请先输入EBITDA预测"}
         debt = self.purchase_price * self.debt_pct
@@ -51,7 +52,7 @@ class DDMModel:
     required_return: float = 0.10
     fair_value: float = 0.0
 
-    def calculate(self) -> Dict[str, float]:
+    def calculate(self) -> dict[str, float]:
         if self.required_return <= self.growth_rate:
             return {"error": "必要回报率必须大于增长率"}
         next_div = self.current_dividend * (1 + self.growth_rate)
@@ -71,7 +72,7 @@ class MergerModel:
     diluted_eps: float = 0.0
     accretion: float = 0.0
 
-    def calculate(self) -> Dict[str, float]:
+    def calculate(self) -> dict[str, float]:
         offer_price = self.target_price * (1 + self.premium)
         if self.acquirer_price and offer_price:
             self.acc_eps = self.acquirer_price * 0.01
@@ -83,10 +84,10 @@ class MergerModel:
 
 
 class AdvancedModelingEngine:
-    def __init__(self, mlx: Optional[MLXClient] = None):
+    def __init__(self, mlx: MLXClient | None = None):
         self.mlx = mlx or MLXClient()
 
-    async def build_lbo(self, company: str, ebitda: List[float], assumptions: Optional[Dict] = None) -> LBOModel:
+    async def build_lbo(self, company: str, ebitda: list[float], assumptions: dict | None = None) -> LBOModel:
         prompt = f"""为{company}构建LBO杠杆收购模型。
 
 EBITDA预测: {ebitda}
@@ -98,7 +99,7 @@ EBITDA预测: {ebitda}
                 {"role": "system", "content": "你是一位资深并购分析师，精通LBO建模。"},
                 {"role": "user", "content": prompt},
             ], temperature=0.1)
-            data = self._parse_json(response)
+            data = parse_json(response)
             if data:
                 model = LBOModel(company=company, ebitda=ebitda,
                     purchase_price=data.get("purchase_price", sum(ebitda) * 8),
@@ -113,14 +114,3 @@ EBITDA预测: {ebitda}
         model = LBOModel(company=company, ebitda=ebitda, purchase_price=sum(ebitda) * 8)
         model.calculate()
         return model
-
-    def _parse_json(self, text: str) -> Any:
-        text = text.strip()
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0].strip()
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return None

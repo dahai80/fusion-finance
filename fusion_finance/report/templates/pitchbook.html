@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company }} — 投资推介材料</title>
+<style>
+  :root { --bg: #0f0f1a; --card: #1a1a2e; --accent: #f7b731; --green: #2ecc71; --red: #e74c3c; --text: #e0e0e0; --muted: #888; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 32px; color: var(--accent); margin-bottom: 8px; }
+  .subtitle { color: var(--muted); font-size: 16px; margin-bottom: 32px; }
+  h2 { font-size: 20px; color: var(--accent); margin: 28px 0 12px; border-left: 3px solid var(--accent); padding-left: 12px; }
+  .card { background: var(--card); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .highlights { list-style: none; counter-reset: hl; }
+  .highlights li { counter-increment: hl; padding: 10px 0 10px 36px; border-bottom: 1px solid #2a2a3e; position: relative; }
+  .highlights li::before { content: counter(hl); position: absolute; left: 0; color: var(--accent); font-weight: 700; font-size: 18px; }
+  .valuation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .val-item { background: var(--card); border-radius: 8px; padding: 16px; text-align: center; }
+  .val-item .label { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+  .val-item .number { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .risks { list-style: none; }
+  .risks li { padding: 8px 0; border-bottom: 1px solid #2a2a3e; padding-left: 20px; position: relative; }
+  .risks li::before { content: "\26A0"; position: absolute; left: 0; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #2a2a3e; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>{{ company }}</h1>
+  <div class="subtitle">投资推介材料 | 行业: {{ industry }} | {{ date }}</div>
+
+  <h2>投资亮点</h2>
+  <div class="card">
+    <ol class="highlights">
+      {% for item in highlights %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ol>
+  </div>
+
+  <h2>估值概要</h2>
+  <div class="valuation-grid">
+    {% for item in valuation_summary %}
+    <div class="val-item">
+      <div class="label">{{ item.label }}</div>
+      <div class="number">{{ item.value }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if chart_svg %}
+  <div style="margin: 16px 0;">{{ chart_svg }}</div>
+  {% endif %}
+
+  <h2>风险因素</h2>
+  <div class="card">
+    <ul class="risks">
+      {% for item in risks %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="footer">由 Fusion-Finance 自动生成 | 仅供内部参考 | {{ timestamp }}</div>
+</div>
+</body>
+</html>
