@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/Offline-First-important" alt="Offline">
-  <img src="https://img.shields.io/badge/tests-308%20passed-brightgreen" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-80%25-brightgreen" alt="Coverage">
+  <img src="https://img.shields.io/badge/tests-497%20passed-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-88%25-brightgreen" alt="Coverage">
   <img src="https://img.shields.io/badge/API-FastAPI-blue" alt="API">
 </p>
 
@@ -43,6 +43,8 @@
 | **Technical Indicators** | ❌ | ✅ | `modeling/portfolio.py` |
 | Financial Metrics | ✅ | ✅ | `statements/analyzer.py` |
 | Balance Sheet Validation | ✅ | ✅ | `statements/analyzer.py` |
+| **Statement Normalizer** | ❌ | ✅ | `statements/normalizer.py` |
+| **Financial Screener** | ❌ | ✅ | `statements/screener.py` |
 | KYC Screening | ✅ | ✅ | `risk/engine.py` |
 | Credit Assessment | ✅ | ✅ | `risk/engine.py` |
 | Compliance Check | ✅ | ✅ | `risk/engine.py` |
@@ -85,7 +87,7 @@ fusion-finance serve --port 8200
 
 ## 🌐 API Server
 
-Fusion-Finance v0.3.0 adds **Black-Litterman portfolio optimization**, **Nelson-Siegel yield curve model**, **sanctions screening engine**, **entity resolution (UBO/PEP)**, **market feed simulator**, and **compute cache with TTL** — on top of the v0.2.2 features: report templates & multi-format export, project management with version control, enhanced audit, copilot scenario/insight prompts, API middleware, SSE event streaming, and modular chart rendering.
+Fusion-Finance v0.5.0 adds **custom exception hierarchy** (typed errors with structured JSON responses), **dashboard aggregation endpoints** (company overview, market overview, service status), **ruff lint clean** (0 issues), and **test consolidation** (merged coverage_boost + phase6 → integration). Previous v0.4.0: financial screener (4 presets), statement normalizer (A股/港股/US GAAP), 6 copilot tools, 88% coverage.
 
 ### Start / Stop
 
@@ -103,7 +105,7 @@ Fusion-Finance v0.3.0 adds **Black-Litterman portfolio optimization**, **Nelson-
 |--------|--------|-----------|
 | `/api/v1/` | Health | `GET /` health, `GET /ready` readiness |
 | `/api/v1/modeling` | Modeling | DCF, comps, sensitivity, Monte Carlo, LBO, DDM, merger, APV, EVA, RI, portfolio, sessions, scenarios |
-| `/api/v1/statements` | Statements | analyze, metrics, validate, screener |
+| `/api/v1/statements` | Statements | analyze, metrics, validate, screener, screener-presets, normalize, trend, standards |
 | `/api/v1/risk` | Risk | KYC, credit, compliance, VaR, stress test |
 | `/api/v1/report` | Reports | valuation, pitchbook, research, export, formats |
 | `/api/v1/copilot` | AI Copilot | chat, history, sessions |
@@ -111,6 +113,7 @@ Fusion-Finance v0.3.0 adds **Black-Litterman portfolio optimization**, **Nelson-
 | `/api/v1/project` | Projects | CRUD, snapshots, versions, diff, history, export |
 | `/api/v1/data` | Data | import, validate balance, validate completeness, cache |
 | `/api/v1/audit` | Audit | record, query, stats, file-stats |
+| `/api/v1/dashboard` | Dashboard | company overview, market overview, service status |
 | `/ws` | WebSocket | `/ws/copilot` streaming chat, `/ws/modeling/progress` |
 | `/events` | SSE | `/events/insights`, `/events/alerts` streams, `/events/publish` |
 
@@ -122,8 +125,29 @@ curl -X POST http://localhost:8200/api/v1/modeling/dcf/calculate \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"wacc":0.10,"terminal_growth":0.03}'
 
+# Screen stocks with growth preset
+curl -X POST http://localhost:8200/api/v1/statements/screener \
+  -H "Content-Type: application/json" \
+  -d '{"filters":{"preset":"growth"},"limit":5}'
+
+# Normalize A-stock financial data
+curl -X POST http://localhost:8200/api/v1/statements/normalize \
+  -H "Content-Type: application/json" \
+  -d '{"data":{"营业收入":1000,"净利润":200},"standard":"A","company":"TestCo","period":"2024"}'
+
 # Health check
 curl http://localhost:8200/api/v1/
+
+# Dashboard: company overview
+curl -X POST http://localhost:8200/api/v1/dashboard/company \
+  -H "Content-Type: application/json" \
+  -d '{"company":"Apple","revenue":[100,120,140],"ebit_margin":[0.2,0.22,0.24],"wacc":0.10}'
+
+# Dashboard: market overview
+curl http://localhost:8200/api/v1/dashboard/market?preset=quality&limit=5
+
+# Dashboard: service status
+curl http://localhost:8200/api/v1/dashboard/status
 
 # AI Copilot chat
 curl -X POST http://localhost:8200/api/v1/copilot/chat \
@@ -154,7 +178,7 @@ Swagger docs: `http://localhost:8200/docs`
 | `PortfolioOptimizer` | Mean-variance portfolio optimization |
 | `BlackLittermanOptimizer` | Black-Litterman posterior returns + mean-variance |
 | `Bond` | Bond pricing and yield calculation |
-| `NelsonSiegelCurve` | Nelson-Siegel yield curve with random search calibration |
+| `YieldCurve` | Nelson-Siegel yield curve with random search calibration |
 | `TechnicalIndicators` | SMA, EMA, RSI, MACD, Bollinger Bands |
 
 ### 2. Statement Analysis (`statements/`)
@@ -166,6 +190,8 @@ Swagger docs: `http://localhost:8200/docs`
 | `calculate_metrics()` | Compute financial ratios from raw data |
 | `validate_balance_sheet()` | Check assets = liabilities + equity |
 | `analyze_statements()` | AI-powered deep financial analysis |
+| `StatementNormalizer` | Multi-standard normalization (A股/港股/US GAAP), YoY/QoQ, trend analysis |
+| `FinancialScreener` | Multi-dimensional stock screening with 4 presets (value/growth/dividend/quality) |
 
 ### 3. Risk & Compliance (`risk/`)
 
@@ -196,7 +222,7 @@ Swagger docs: `http://localhost:8200/docs`
 | Component | Description |
 |-----------|-------------|
 | `CopilotEngine` | ReAct loop engine with max 3 tool rounds |
-| `ToolRegistry` | 12 financial tools (DCF, comps, sensitivity, VaR, etc.) |
+| `ToolRegistry` | 18 financial tools (DCF, comps, sensitivity, VaR, BL, sanctions, bond, etc.) |
 | `ConversationMemory` | Session-based memory (max 50 msgs, 100 sessions) |
 | `chat()` | Full copilot chat with tool execution |
 | `chat_stream()` | AsyncIterator for WebSocket streaming |
@@ -278,7 +304,8 @@ Swagger docs: `http://localhost:8200/docs`
 │  ReportFormatter   │ ProjectManager     │ VersionControl        │
 │  InteractiveDCF    │ ScenarioManager    │ CopilotEngine         │
 │  ChartRenderer     │ DataAdapter        │ ConversationMemory    │
-│  Copilot Prompts   │ Chart Modules (4)                          │
+│  StatementNormalizer│ FinancialScreener │ Copilot Prompts       │
+│  Chart Modules (4)                                            │
 ├───────────────────────────────────────────────────────────────┤
 │                 AI Backend (fusion-mlx)                        │
 │  HTTP → http://localhost:11434/v1/chat/completions            │
@@ -313,7 +340,7 @@ Commands:
 
 ```bash
 pip install -e ".[test]"
-pytest tests/ -v                              # All tests (308 passed)
+pytest tests/ -v                              # All tests (497 passed)
 pytest tests/test_core.py -v                  # Core tests
 pytest tests/test_api.py -v                   # API endpoint tests
 pytest tests/test_coverage.py -v              # Advanced model tests
@@ -321,7 +348,7 @@ pytest tests/test_phase2.py -v               # Phase 2: copilot, chart, data
 pytest tests/test_phase3.py -v               # Phase 3: report templates, project, audit
 pytest tests/test_phase3plus.py -v          # Phase 3+: prompts, middleware, SSE, chart modules
 pytest tests/test_phase5.py -v               # Phase 5: BL, yield curve, sanctions, entity, market feed
-pytest tests/test_coverage_boost.py -v       # Coverage boost: scenarios, tools, formatter, API routes
+pytest tests/test_integration.py -v          # Integration: WS, CLI, normalizer, screener, scenarios, tools
 pytest tests/ --cov=fusion_finance --cov-report=html
 ```
 
@@ -366,8 +393,8 @@ MIT License. See [LICENSE](LICENSE) for details.
   <img src="https://img.shields.io/badge/license-MIT-green" alt="许可证">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/离线优先-核心特性-important" alt="离线优先">
-  <img src="https://img.shields.io/badge/测试-308%20通过-brightgreen" alt="测试">
-  <img src="https://img.shields.io/badge/覆盖率-80%25-brightgreen" alt="覆盖率">
+  <img src="https://img.shields.io/badge/测试-497%20通过-brightgreen" alt="测试">
+  <img src="https://img.shields.io/badge/覆盖率-88%25-brightgreen" alt="覆盖率">
   <img src="https://img.shields.io/badge/API-FastAPI-blue" alt="API">
 </p>
 
@@ -377,7 +404,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
-v0.3.0 新增：**Black-Litterman 组合优化**、**Nelson-Siegel 收益率曲线**、**制裁名单匹配引擎**、**实体解析（UBO/PEP）**、**行情数据模拟器**、**计算缓存（TTL）**。v0.2.2 功能：Jinja2 报告模板与多格式导出、项目管理与版本控制、增强审计日志、Copilot 场景/洞察提示词、API 中间件、SSE 事件流、图表模块化渲染。
+v0.5.0 新增：**自定义异常体系**（6类结构化错误响应）、**仪表盘聚合端点**（公司全景、市场概览、服务状态）、**Ruff 零告警**、**测试整合**（合并为 integration 测试）、**fusion-studio GUI 集成**（FinanceBridge + 8 视图 + Sidebar 注册，PR [#87](https://github.com/dahai80/fusion-studio/pull/87)）。v0.4.0：选股器（4策略）、财报标准化（三准则互转）、6个 Copilot 工具、88%覆盖率。
 
 ### 快速开始
 
@@ -413,10 +440,10 @@ API 文档：`http://localhost:8200/docs`
 | 模块 | 功能 | 关键能力 |
 |------|------|----------|
 | 📊 **财务建模** | DCF/LBO/DDM/并购/敏感性/蒙特卡洛 | 15 种模型 + Black-Litterman + 收益率曲线 |
-| 📋 **财报分析** | 指标计算/勾稽校验/AI 分析 | 10+ 财务指标 |
+| 📋 **财报分析** | 指标计算/勾稽校验/AI 分析/标准化/选股 | 10+ 财务指标 + 三准则互转 + 4 策略筛选 |
 | 🛡️ **风控合规** | KYC/信用评估/制裁名单/实体解析/VaR/压力测试 | 6 大风控模型 |
 | 📄 **报告生成** | 估值报告/PitchBook/投研报告/董事会材料 | 4 种模板 + 6 种格式导出 |
-| 🤖 **AI Copilot** | 自然语言交互/工具调用/场景提示 | ReAct 模式 + 12 工具 + 5 场景 |
+| 🤖 **AI Copilot** | 自然语言交互/工具调用/场景提示 | ReAct 模式 + 18 工具 + 5 场景 |
 | 📈 **图表渲染** | K线/热力图/瀑布图/龙卷风图 | 模块化 SVG 渲染 |
 | 📥 **数据适配** | CSV导入/验证/缓存/行情模拟/计算缓存 | LRU + TTL + A股/港股模拟 |
 | 🔍 **审计日志** | 操作记录/查询/统计 | JSONL 持久化 + 结构化查询 |
