@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11%2B-blue" alt="Python">
   <img src="https://img.shields.io/badge/macOS-Apple%20Silicon-brightgreen" alt="macOS">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="许可证">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="许可证">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/离线优先-核心特性-important" alt="离线优先">
   <img src="https://img.shields.io/badge/测试-497%20通过-brightgreen" alt="测试">
@@ -64,7 +64,7 @@ v0.5.0 新增：**自定义异常体系**（6类结构化错误响应）、**仪
 | **行情模拟器** | ❌ | ✅ | `data/market_feed.py` |
 | **计算缓存** | ❌ | ✅ | `data/cache.py` |
 | **审计日志** | ✅ | ✅ | `utils/audit.py` |
-| **授权** | 企业版 | ✅ **MIT（免费）** | — |
+| **授权** | 企业版 | ✅ **Apache 2.0（免费）** | — |
 
 ---
 
@@ -367,7 +367,7 @@ pytest tests/ --cov=fusion_finance --cov-report=html
 
 ## 📄 开源协议
 
-MIT License. 详见 [LICENSE](LICENSE)。
+Apache License 2.0. 详见 [LICENSE](LICENSE)。
 
 ---
 

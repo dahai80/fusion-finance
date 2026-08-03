@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11%2B-blue" alt="Python">
   <img src="https://img.shields.io/badge/macOS-Apple%20Silicon-brightgreen" alt="macOS">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
   <img src="https://img.shields.io/badge/AI-MLX%20Native-orange" alt="MLX">
   <img src="https://img.shields.io/badge/Offline-First-important" alt="Offline">
   <img src="https://img.shields.io/badge/tests-497%20passed-brightgreen" alt="Tests">
@@ -64,7 +64,7 @@ v0.5.0: **Custom exception hierarchy** (6 typed error responses), **Dashboard ag
 | **Market Feed Simulator** | ❌ | ✅ | `data/market_feed.py` |
 | **Compute Cache** | ❌ | ✅ | `data/cache.py` |
 | **Audit Trail** | ✅ | ✅ | `utils/audit.py` |
-| **License** | Enterprise | ✅ **MIT (free)** | — |
+| **License** | Enterprise | ✅ **Apache 2.0 (free)** | — |
 
 ---
 
@@ -367,7 +367,7 @@ pytest tests/ --cov=fusion_finance --cov-report=html
 
 ## 📄 License
 
-MIT License. See [LICENSE](LICENSE) for details.
+Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
