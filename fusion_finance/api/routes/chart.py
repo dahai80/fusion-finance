@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ...chart import ChartRenderer
+from ...exceptions import FinanceError
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +47,10 @@ async def candlestick(req: CandlestickRequest):
     try:
         svg = _renderer.candlestick(req.data, title=req.title)
         return {"svg": svg, "symbol": req.symbol, "data_points": len(req.data)}
+    except FinanceError:
+        raise
     except Exception as e:
-        logger.error("candlestick failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise FinanceError(message="candlestick failed", detail=str(e))
 
 
 @router.post("/heatmap", summary="热力图SVG")
@@ -60,9 +62,10 @@ async def heatmap(req: HeatmapRequest):
         return {"svg": svg}
     except HTTPException:
         raise
+    except FinanceError:
+        raise
     except Exception as e:
-        logger.error("heatmap failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise FinanceError(message="heatmap failed", detail=str(e))
 
 
 @router.post("/waterfall", summary="瀑布图SVG")
@@ -70,9 +73,10 @@ async def waterfall(req: WaterfallRequest):
     try:
         svg = _renderer.waterfall(req.categories, req.values, title=req.title)
         return {"svg": svg}
+    except FinanceError:
+        raise
     except Exception as e:
-        logger.error("waterfall failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise FinanceError(message="waterfall failed", detail=str(e))
 
 
 @router.post("/sensitivity", summary="敏感性龙卷风图SVG")
@@ -89,6 +93,7 @@ async def sensitivity_chart(req: SensitivityChartRequest):
         return {"svg": svg}
     except HTTPException:
         raise
+    except FinanceError:
+        raise
     except Exception as e:
-        logger.error("sensitivity_chart failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise FinanceError(message="sensitivity_chart failed", detail=str(e))

@@ -22,6 +22,8 @@
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
+v0.5.1：**端口迁移** — 服务端口 8200→11446（issue #4），MLX 基址 11434→11432（issue #3），对齐 fusion 生态 114xx 端口编排。
+
 v0.5.0 新增：**自定义异常体系**（6类结构化错误响应）、**仪表盘聚合端点**（公司全景、市场概览、服务状态）、**Ruff 零告警**、**测试整合**、**fusion-studio GUI 集成**（FinanceBridge + 8 视图，PR [#87](https://github.com/dahai80/fusion-studio/pull/87)）。
 
 ### 与 Claude Financial 对比
@@ -81,7 +83,7 @@ fusion-finance risk kyc "目标公司"
 fusion-finance report valuation "公司A" -o ./reports
 
 # 启动 API 服务
-fusion-finance serve --port 8200
+fusion-finance serve --port 11446
 # 或使用 start.sh
 ./start.sh start
 ```
@@ -93,7 +95,7 @@ fusion-finance serve --port 8200
 ### 启停命令
 
 ```bash
-./start.sh start    # 启动（端口 8200）
+./start.sh start    # 启动（端口 11446）
 ./start.sh stop     # 停止
 ./start.sh restart  # 重启
 ./start.sh status   # 查看状态
@@ -122,41 +124,41 @@ fusion-finance serve --port 8200
 
 ```bash
 # 计算 DCF
-curl -X POST http://localhost:8200/api/v1/modeling/dcf/calculate \
+curl -X POST http://localhost:11446/api/v1/modeling/dcf/calculate \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"wacc":0.10,"terminal_growth":0.03}'
 
 # 成长策略选股
-curl -X POST http://localhost:8200/api/v1/statements/screener \
+curl -X POST http://localhost:11446/api/v1/statements/screener \
   -H "Content-Type: application/json" \
   -d '{"filters":{"preset":"growth"},"limit":5}'
 
 # A股财报标准化
-curl -X POST http://localhost:8200/api/v1/statements/normalize \
+curl -X POST http://localhost:11446/api/v1/statements/normalize \
   -H "Content-Type: application/json" \
   -d '{"data":{"营业收入":1000,"净利润":200},"standard":"A","company":"TestCo","period":"2024"}'
 
 # 健康检查
-curl http://localhost:8200/api/v1/
+curl http://localhost:11446/api/v1/
 
 # 仪表盘：公司全景
-curl -X POST http://localhost:8200/api/v1/dashboard/company \
+curl -X POST http://localhost:11446/api/v1/dashboard/company \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"ebit_margin":[0.2,0.22,0.24],"wacc":0.10}'
 
 # 仪表盘：市场概览
-curl http://localhost:8200/api/v1/dashboard/market?preset=quality&limit=5
+curl http://localhost:11446/api/v1/dashboard/market?preset=quality&limit=5
 
 # 仪表盘：服务状态
-curl http://localhost:8200/api/v1/dashboard/status
+curl http://localhost:11446/api/v1/dashboard/status
 
 # AI 助手对话
-curl -X POST http://localhost:8200/api/v1/copilot/chat \
+curl -X POST http://localhost:11446/api/v1/copilot/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"分析Apple的DCF估值","session_id":"demo"}'
 ```
 
-Swagger 文档：`http://localhost:8200/docs`
+Swagger 文档：`http://localhost:11446/docs`
 
 ---
 
@@ -281,8 +283,8 @@ Swagger 文档：`http://localhost:8200/docs`
 | 设置 | 默认值 | 环境变量 |
 |------|--------|----------|
 | 主机 | `0.0.0.0` | `FUSION_FINANCE_HOST` |
-| 端口 | `8200` | `FUSION_FINANCE_PORT` |
-| MLX 地址 | `http://localhost:11434/v1` | `FUSION_FINANCE_MLX_URL` |
+| 端口 | `11446` | `FUSION_FINANCE_PORT` |
+| MLX 地址 | `http://localhost:11432/v1` | `FUSION_FINANCE_MLX_URL` |
 | 模型 | `qwen3.5-9b` | `FUSION_FINANCE_MODEL` |
 | 数据目录 | `~/.fusion/finance` | `FUSION_FINANCE_DATA_DIR` |
 
@@ -293,7 +295,7 @@ Swagger 文档：`http://localhost:8200/docs`
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │                 CLI / API 服务                                  │
-│   Click CLI (fusion-finance)  │  FastAPI (localhost:8200)     │
+│   Click CLI (fusion-finance)  │  FastAPI (localhost:11446)     │
 ├───────────────────────────────────────────────────────────────┤
 │               API 中间件与 SSE                                  │
 │  AuditMiddleware │ RateLimitMiddleware │ APIKeyMiddleware      │
@@ -309,7 +311,7 @@ Swagger 文档：`http://localhost:8200/docs`
 │  Chart Modules (4)                                            │
 ├───────────────────────────────────────────────────────────────┤
 │                 AI 后端 (fusion-mlx)                            │
-│  HTTP → http://localhost:11434/v1/chat/completions            │
+│  HTTP → http://localhost:11432/v1/chat/completions            │
 │  MLXClient（重试 + httpx 回退）                                │
 │  100% 本地，数据不上传                                          │
 └───────────────────────────────────────────────────────────────┘

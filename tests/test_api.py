@@ -19,7 +19,7 @@ class TestHealthEndpoints:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["version"] == "0.2.0"
+        assert data["version"] == "0.5.1"
 
     def test_ready(self, client):
         resp = client.get("/api/v1/ready")
@@ -158,3 +158,41 @@ class TestReportEndpoints:
         }
         resp = client.post("/api/v1/report/pitchbook", json=payload)
         assert resp.status_code == 200
+
+
+class TestDashboardEndpoints:
+    def test_company_dashboard(self, client):
+        payload = {
+            "company": "TestCorp",
+            "revenue": [100, 120, 140],
+            "ebit_margin": [0.2, 0.22, 0.24],
+            "wacc": 0.10,
+            "terminal_growth": 0.03,
+        }
+        resp = client.post("/api/v1/dashboard/company", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["company"] == "TestCorp"
+        assert "dcf" in data
+        assert "scenarios" in data
+
+    def test_company_dashboard_no_revenue(self, client):
+        payload = {"company": "EmptyCorp"}
+        resp = client.post("/api/v1/dashboard/company", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["dcf"] is None
+
+    def test_market_dashboard(self, client):
+        resp = client.get("/api/v1/dashboard/market", params={"preset": "quality", "limit": 3})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "screener" in data
+
+    def test_service_status(self, client):
+        resp = client.get("/api/v1/dashboard/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["service"] == "fusion-finance"
+        assert "mlx" in data
+        assert "modules" in data

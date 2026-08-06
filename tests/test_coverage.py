@@ -32,7 +32,7 @@ class MockMLX:
 class TestMLXClient:
     @pytest.mark.asyncio
     async def test_chat_httpx_fallback(self):
-        client = MLXClient(base_url="http://localhost:11434/v1")
+        client = MLXClient(base_url="http://localhost:11432/v1")
         mock_http = MagicMock()
         mock_http.get = AsyncMock(return_value=MagicMock(status_code=200, json=lambda: {"data": [{"id": "qwen"}]}))
         mock_http.post = AsyncMock(

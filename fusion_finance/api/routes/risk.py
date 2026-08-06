@@ -4,10 +4,11 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
+from ...exceptions import RiskError
 from ...risk.advanced_risk import RiskModelingEngine, StressTestResult
 from ...risk.engine import RiskComplianceEngine
 from ...risk.entity_resolution import EntityResolver
@@ -65,9 +66,10 @@ async def kyc_screening(req: KYCRequest):
         engine = RiskComplianceEngine(_get_mlx())
         result = await engine.kyc_screening(req.entity, req.jurisdiction)
         return asdict(result)
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("kyc_screening failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="kyc_screening failed", detail=str(e), risk_type="kyc_screening")
 
 
 @router.post("/credit", summary="AI信用评估")
@@ -76,9 +78,10 @@ async def credit_assessment(req: CreditRequest):
         engine = RiskComplianceEngine(_get_mlx())
         result = await engine.credit_assessment(req.entity, req.financials)
         return asdict(result)
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("credit_assessment failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="credit_assessment failed", detail=str(e), risk_type="credit_assessment")
 
 
 @router.post("/compliance", summary="AI合规审查")
@@ -87,9 +90,10 @@ async def compliance_check(req: ComplianceRequest):
         engine = RiskComplianceEngine(_get_mlx())
         result = await engine.compliance_check(req.contract, req.regulations)
         return result
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("compliance_check failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="compliance_check failed", detail=str(e), risk_type="compliance_check")
 
 
 @router.post("/var", summary="VaR风险价值计算(纯数学)")
@@ -97,9 +101,10 @@ async def calculate_var(req: VaRRequest):
     try:
         result = RiskModelingEngine.calculate_var(req.returns, req.portfolio_value, req.confidence)
         return asdict(result)
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("calculate_var failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="calculate_var failed", detail=str(e), risk_type="calculate_var")
 
 
 @router.post("/var/monte-carlo", summary="蒙特卡洛VaR(纯数学)")
@@ -113,9 +118,10 @@ async def monte_carlo_var(req: MonteCarloVaRRequest):
             req.simulations,
         )
         return asdict(result)
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("monte_carlo_var failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="monte_carlo_var failed", detail=str(e), risk_type="monte_carlo_var")
 
 
 @router.get("/stress-scenarios", summary="获取压力测试预设场景")
@@ -123,9 +129,10 @@ async def get_stress_scenarios():
     try:
         scenarios = RiskModelingEngine.stress_test_scenarios()
         return {"scenarios": [asdict(s) for s in scenarios]}
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("get_stress_scenarios failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="get_stress_scenarios failed", detail=str(e), risk_type="get_stress_scenarios")
 
 
 @router.post("/stress-test", summary="自定义压力测试")
@@ -140,9 +147,10 @@ async def run_stress_test(req: StressTestRequest):
         )
         logger.info("Stress test: scenario=%s, impact=%.2f", req.scenario, req.impact)
         return asdict(result)
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("run_stress_test failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="run_stress_test failed", detail=str(e), risk_type="run_stress_test")
 
 
 class SanctionsScreenRequest(BaseModel):
@@ -176,9 +184,10 @@ async def sanctions_screen(req: SanctionsScreenRequest):
     try:
         matches = _sanctions_engine.screen(req.entity, req.threshold)
         return {"entity": req.entity, "matches": [asdict(m) for m in matches], "hit_count": len(matches)}
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("sanctions_screen failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="sanctions_screen failed", detail=str(e), risk_type="sanctions_screen")
 
 
 @router.post("/sanctions/batch", summary="批量制裁名单筛查(纯逻辑)")
@@ -189,9 +198,10 @@ async def sanctions_batch(req: SanctionsBatchRequest):
             "results": {k: [asdict(m) for m in v] for k, v in results.items()},
             "total_entities": len(req.entities),
         }
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("sanctions_batch failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="sanctions_batch failed", detail=str(e), risk_type="sanctions_batch")
 
 
 @router.post("/entity-graph", summary="实体关系图谱(纯逻辑)")
@@ -199,9 +209,10 @@ async def entity_graph(req: EntityGraphRequest):
     try:
         graph = _entity_resolver.build_from_structure({"nodes": req.nodes, "edges": req.edges})
         return graph.to_dict()
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("entity_graph failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="entity_graph failed", detail=str(e), risk_type="entity_graph")
 
 
 @router.post("/entity-graph/ubo", summary="UBO最终受益人解析(纯逻辑)")
@@ -211,6 +222,7 @@ async def resolve_ubo(req: UBORequest):
         ubos = _entity_resolver.resolve_ubo(graph, req.target_entity_id, req.threshold)
         pep_connections = _entity_resolver.find_pep_connections(graph)
         return {"target_entity_id": req.target_entity_id, "ubos": ubos, "pep_connections": pep_connections}
+    except RiskError:
+        raise
     except Exception as e:
-        logger.error("resolve_ubo failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise RiskError(message="resolve_ubo failed", detail=str(e), risk_type="resolve_ubo")

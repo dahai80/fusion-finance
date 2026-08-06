@@ -73,6 +73,46 @@ TOOL_DEFINITIONS = [
         "description": "投资组合优化",
         "parameters": {"returns": "各资产收益率", "volatilities": "波动率", "correlations": "相关性矩阵"},
     },
+    {
+        "name": "black_litterman",
+        "description": "Black-Litterman模型组合优化，融合市场均衡与投资者观点",
+        "parameters": {
+            "returns": "各资产收益率",
+            "volatilities": "波动率",
+            "correlations": "相关性矩阵",
+            "views": "投资者观点列表",
+        },
+    },
+    {
+        "name": "sanctions_screening",
+        "description": "制裁名单筛查，支持Levenshtein模糊匹配和关键词匹配",
+        "parameters": {"entity": "实体名", "threshold": "匹配阈值(0-1)"},
+    },
+    {
+        "name": "entity_resolution",
+        "description": "实体关系图谱分析，支持UBO追溯和PEP扫描",
+        "parameters": {"entity": "实体名", "depth": "追溯深度"},
+    },
+    {
+        "name": "market_feed",
+        "description": "模拟行情数据生成，支持A股/港股实时报价",
+        "parameters": {"market": "市场(A/HK)"},
+    },
+    {
+        "name": "bond_analysis",
+        "description": "债券分析，计算久期、凸性、YTM等指标",
+        "parameters": {
+            "face_value": "面值",
+            "coupon_rate": "票息率",
+            "years": "期限",
+            "yield_to_maturity": "到期收益率",
+        },
+    },
+    {
+        "name": "yield_curve",
+        "description": "Nelson-Siegel收益率曲线校准，根据观测利率拟合参数",
+        "parameters": {"maturities": "期限列表", "yields": "收益率列表"},
+    },
 ]
 
 
@@ -95,6 +135,12 @@ class ToolRegistry:
         self.register("generate_valuation_report", self._val_report)
         self.register("calculate_metrics", self._metrics)
         self.register("optimize_portfolio", self._portfolio)
+        self.register("black_litterman", self._black_litterman)
+        self.register("sanctions_screening", self._sanctions)
+        self.register("entity_resolution", self._entity_resolution)
+        self.register("market_feed", self._market_feed)
+        self.register("bond_analysis", self._bond)
+        self.register("yield_curve", self._yield_curve)
 
     def register(self, name: str, func: Callable):
         self._tools[name] = func
@@ -245,3 +291,62 @@ class ToolRegistry:
             correlations=args.get("correlations", []),
         )
         return opt.optimize(args.get("target_return", 0.08))
+
+    async def _black_litterman(self, args: dict[str, Any]) -> Any:
+        from ..modeling.portfolio import BlackLittermanOptimizer
+
+        bl = BlackLittermanOptimizer(
+            returns=args.get("returns", []),
+            volatilities=args.get("volatilities", []),
+            correlations=args.get("correlations", []),
+        )
+        return bl.optimize(args.get("views", []))
+
+    async def _sanctions(self, args: dict[str, Any]) -> Any:
+        from ..risk.sanctions import SanctionsEngine
+
+        engine = SanctionsEngine()
+        results = engine.screen(args.get("entity", ""), threshold=args.get("threshold", 0.6))
+        return [asdict(r) for r in results]
+
+    async def _entity_resolution(self, args: dict[str, Any]) -> Any:
+        from ..risk.entity_resolution import EntityGraph, EntityResolver
+
+        graph = EntityGraph()
+        resolver = EntityResolver(graph)
+        depth = args.get("depth", 2)
+        entity = args.get("entity", "")
+        graph_results = resolver.resolve(entity)
+        ubo = resolver.trace_ubo(entity, max_depth=depth)
+        pep = resolver.scan_pep(entity)
+        return {"resolved": [str(e) for e in graph_results], "ubo": [str(u) for u in ubo], "pep": pep}
+
+    async def _market_feed(self, args: dict[str, Any]) -> Any:
+        from ..data.market_feed import MarketFeedSimulator
+
+        sim = MarketFeedSimulator()
+        market = args.get("market", "A")
+        quotes = sim.generate_quotes(market=market)
+        return [asdict(q) for q in quotes]
+
+    async def _bond(self, args: dict[str, Any]) -> Any:
+        from ..modeling.portfolio import Bond
+
+        bond = Bond(
+            face_value=args.get("face_value", 1000),
+            coupon_rate=args.get("coupon_rate", 0.05),
+            years_to_maturity=args.get("years", 5),
+            yield_to_maturity=args.get("yield_to_maturity", 0.05),
+        )
+        return bond.calculate()
+
+    async def _yield_curve(self, args: dict[str, Any]) -> Any:
+        from ..modeling.portfolio import YieldCurve
+
+        curve = YieldCurve()
+        maturities = args.get("maturities", [])
+        yields = args.get("yields", [])
+        if maturities and yields:
+            result = curve.calibrate(maturities, yields)
+            return result
+        return {"error": "需要提供maturities和yields参数"}

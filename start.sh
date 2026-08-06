@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="$SCRIPT_DIR/.fusion-finance.pid"
 HOST="${FUSION_FINANCE_HOST:-0.0.0.0}"
-PORT="${FUSION_FINANCE_PORT:-8200}"
+PORT="${FUSION_FINANCE_PORT:-11446}"
 LOG_FILE="$SCRIPT_DIR/.fusion-finance.log"
 
 start() {

@@ -179,7 +179,7 @@ class TestModuleIntegrity:
     def test_import(self):
         import fusion_finance
 
-        assert fusion_finance.__version__ == "0.2.0"
+        assert fusion_finance.__version__ == "0.5.1"
 
     def test_cli_import(self):
         from fusion_finance import cli

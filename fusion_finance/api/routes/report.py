@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
+from ...exceptions import ReportError
 from ...modeling.engine import CompsAnalysis, DCFModel
 from ...report.formatter import SUPPORTED_FORMATS, ReportFormatter
 from ...report.reports import ReportGenerator
@@ -84,9 +85,12 @@ async def generate_valuation_report(req: ValuationReportRequest):
         generator = ReportGenerator()
         content = generator.generate_valuation_report(req.company, dcf, comps)
         return {"company": req.company, "content": content, "format": "markdown"}
+    except ReportError:
+        raise
     except Exception as e:
-        logger.error("generate_valuation_report failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ReportError(
+            message="generate_valuation_report failed", detail=str(e), risk_type="generate_valuation_report"
+        )
 
 
 @router.post("/pitchbook", summary="生成PitchBook")
@@ -97,9 +101,10 @@ async def generate_pitchbook(req: PitchbookRequest):
         generator = ReportGenerator()
         content = generator.generate_pitchbook(req.company, dcf, req.industry)
         return {"company": req.company, "content": content, "format": "markdown"}
+    except ReportError:
+        raise
     except Exception as e:
-        logger.error("generate_pitchbook failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ReportError(message="generate_pitchbook failed", detail=str(e), risk_type="generate_pitchbook")
 
 
 @router.post("/research", summary="AI生成深度投研报告")
@@ -108,9 +113,12 @@ async def generate_research_report(req: ResearchReportRequest):
         generator = ReportGenerator(_get_mlx())
         content = await generator.generate_research_report(req.company, req.industry, req.data)
         return {"company": req.company, "content": content, "format": "markdown"}
+    except ReportError:
+        raise
     except Exception as e:
-        logger.error("generate_research_report failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ReportError(
+            message="generate_research_report failed", detail=str(e), risk_type="generate_research_report"
+        )
 
 
 @router.post("/export/{fmt}", summary="导出报告")
@@ -126,9 +134,10 @@ async def export_report(fmt: str, req: ExportRequest):
         return {"format": fmt, "path": path, "status": "ok"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except ReportError:
+        raise
     except Exception as e:
-        logger.error("export_report failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ReportError(message="export_report failed", detail=str(e), risk_type="export_report")
 
 
 @router.get("/formats", summary="支持的导出格式")

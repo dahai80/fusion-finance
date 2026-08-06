@@ -4,11 +4,14 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ...ai_client import MLXClient
+from ...exceptions import DataError
 from ...statements.analyzer import FinancialStatement, StatementAnalyzer
+from ...statements.normalizer import StatementNormalizer
+from ...statements.screener import FinancialScreener, ScreenFilter
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,17 @@ class ScreenerRequest(BaseModel):
     limit: int = 20
 
 
+class NormalizeRequest(BaseModel):
+    data: dict[str, Any]
+    standard: str = "A"
+    company: str = ""
+    period: str = ""
+
+
+class TrendRequest(BaseModel):
+    statements: list[MetricsRequest]
+
+
 def _get_mlx() -> MLXClient:
     return MLXClient()
 
@@ -53,9 +67,10 @@ async def analyze_statements(req: AnalyzeRequest):
         analyzer = StatementAnalyzer(_get_mlx())
         result = await analyzer.analyze_statements(req.company, req.data)
         return {"company": req.company, "analysis": result}
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("analyze_statements failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="analyze_statements failed", detail=str(e), field="analyze_statements")
 
 
 @router.post("/metrics", summary="纯财务指标计算(无AI)")
@@ -77,9 +92,10 @@ async def calculate_metrics(req: MetricsRequest):
         analyzer = StatementAnalyzer()
         analysis = analyzer.calculate_metrics(stmt)
         return asdict(analysis)
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("calculate_metrics failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="calculate_metrics failed", detail=str(e), field="calculate_metrics")
 
 
 @router.post("/validate", summary="资产负债表勾稽校验")
@@ -105,16 +121,83 @@ async def validate_balance_sheet(req: ValidateRequest):
         analyzer = StatementAnalyzer()
         issues = analyzer.validate_balance_sheet(stmts)
         return {"total_checked": len(stmts), "issues": issues, "valid": len(issues) == 0}
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("validate_balance_sheet failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="validate_balance_sheet failed", detail=str(e), field="validate_balance_sheet")
 
 
-@router.post("/screener", summary="股票筛选器(预留)")
+@router.post("/screener", summary="股票筛选器")
 async def screener(req: ScreenerRequest):
-    return {
-        "status": "placeholder",
-        "message": "股票筛选器功能开发中",
-        "filters": req.filters,
-        "limit": req.limit,
-    }
+    try:
+        screener = FinancialScreener()
+        screener.load_sample_data()
+        preset = ""
+        filters = None
+        if req.filters:
+            preset = req.filters.get("preset", "")
+            if preset:
+                filters = None
+            else:
+                raw = req.filters.get("filters", [])
+                filters = [
+                    ScreenFilter(metric=f.get("metric", ""), min_val=f.get("min"), max_val=f.get("max"))
+                    for f in raw
+                    if f.get("metric")
+                ]
+        result = screener.screen_and_rank(filters=filters, preset=preset, limit=req.limit)
+        return result
+    except DataError:
+        raise
+    except Exception as e:
+        raise DataError(message="screener failed", detail=str(e), field="screener")
+
+
+@router.post("/normalize", summary="财报数据标准化")
+async def normalize_statement(req: NormalizeRequest):
+    try:
+        normalizer = StatementNormalizer(standard=req.standard)
+        stmt = normalizer.normalize(req.data, company=req.company, period=req.period)
+        return asdict(stmt)
+    except DataError:
+        raise
+    except Exception as e:
+        raise DataError(message="normalize_statement failed", detail=str(e), field="normalize_statement")
+
+
+@router.post("/trend", summary="多期趋势分析")
+async def trend_analysis(req: TrendRequest):
+    try:
+        stmts = []
+        for s in req.statements:
+            stmts.append(
+                FinancialStatement(
+                    company=s.company,
+                    period=s.period,
+                    revenue=s.revenue,
+                    gross_profit=s.gross_profit,
+                    operating_income=s.operating_income,
+                    net_income=s.net_income,
+                    total_assets=s.total_assets,
+                    total_liabilities=s.total_liabilities,
+                    equity=s.equity,
+                    operating_cf=s.operating_cf,
+                    free_cf=s.free_cf,
+                )
+            )
+        return StatementNormalizer.trend_analysis(stmts)
+    except DataError:
+        raise
+    except Exception as e:
+        raise DataError(message="trend_analysis failed", detail=str(e), field="trend_analysis")
+
+
+@router.get("/standards", summary="支持的会计准则列表")
+async def list_standards():
+    return {"standards": StatementNormalizer.list_standards()}
+
+
+@router.get("/screener-presets", summary="筛选器预设列表")
+async def screener_presets():
+    s = FinancialScreener()
+    return {"presets": s.list_presets()}

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from ...config import CACHE_DIR
 from ...data import DataAdapter
 from ...data.market_feed import MarketDataAdapter
+from ...exceptions import DataError
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +67,10 @@ async def import_data(file: UploadFile = File(default=...)):
         )
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="文件编码不支持，请使用UTF-8编码的CSV")
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("import_data failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="import_data failed", detail=str(e), field="import_data")
 
 
 @router.post("/validate/balance", summary="验证资产负债表平衡")
@@ -76,9 +78,10 @@ async def validate_balance(req: ValidateBalanceRequest):
     try:
         result = _adapter.validate_balance(req.assets, req.liabilities, req.equity, req.tolerance)
         return result
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("validate_balance failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="validate_balance failed", detail=str(e), field="validate_balance")
 
 
 @router.post("/validate/completeness", summary="数据完整性检查")
@@ -86,9 +89,10 @@ async def check_completeness(req: CompletenessRequest):
     try:
         result = _adapter.check_completeness(req.data, req.required_fields)
         return result
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("check_completeness failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="check_completeness failed", detail=str(e), field="check_completeness")
 
 
 @router.get("/cache", summary="列出缓存数据")
@@ -108,9 +112,10 @@ async def list_cache():
                 except Exception:
                     continue
         return {"items": items, "total": len(items)}
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("list_cache failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="list_cache failed", detail=str(e), field="list_cache")
 
 
 @router.delete("/cache/{key}", summary="删除缓存项")
@@ -124,9 +129,10 @@ async def delete_cache(key: str):
         return {"deleted": key}
     except HTTPException:
         raise
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("delete_cache failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="delete_cache failed", detail=str(e), field="delete_cache")
 
 
 class MarketQuoteRequest(BaseModel):
@@ -148,9 +154,10 @@ async def market_quotes(market: str = "A"):
     try:
         quotes = _market.get_quotes(market)
         return {"market": market, "quotes": quotes, "count": len(quotes)}
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("market_quotes failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="market_quotes failed", detail=str(e), field="market_quotes")
 
 
 @router.post("/market/ohlcv", summary="获取模拟OHLCV数据")
@@ -158,9 +165,10 @@ async def market_ohlcv(req: OHLCVRequest):
     try:
         ohlcv = _market.get_ohlcv(req.symbol, req.base_price, req.bars)
         return {"symbol": req.symbol, "ohlcv": ohlcv, "count": len(ohlcv)}
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("market_ohlcv failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="market_ohlcv failed", detail=str(e), field="market_ohlcv")
 
 
 @router.post("/market/technicals", summary="计算技术指标")
@@ -168,6 +176,7 @@ async def market_technicals(req: TechnicalsRequest):
     try:
         result = _market.compute_technicals(req.ohlcv)
         return result
+    except DataError:
+        raise
     except Exception as e:
-        logger.error("market_technicals failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise DataError(message="market_technicals failed", detail=str(e), field="market_technicals")

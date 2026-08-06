@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
+from ...exceptions import ModelError
 from ...modeling.advanced import AdvancedModelingEngine, DDMModel, MergerModel
 from ...modeling.engine import DCFModel, FinancialModelingEngine, InteractiveDCFSession
 from ...modeling.portfolio import BlackLittermanOptimizer, PortfolioOptimizer, YieldCurve
@@ -159,9 +160,11 @@ async def build_dcf(req: DCFBuildRequest):
         engine = FinancialModelingEngine(_get_mlx())
         model = await engine.build_dcf(req.company, req.revenue, req.assumptions)
         return asdict(model)
+    except ModelError:
+        raise
     except Exception as e:
         logger.error("build_dcf failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="build_dcf failed", detail=str(e), model_type="dcf")
 
 
 @router.post("/dcf/calculate", summary="纯DCF计算(无AI)")
@@ -180,9 +183,10 @@ async def calculate_dcf(req: DCFCalculateRequest):
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("calculate_dcf failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="calculate_dcf failed", detail=str(e), model_type="calculate_dcf")
 
 
 @router.post("/comps", summary="AI辅助可比公司分析")
@@ -191,9 +195,10 @@ async def build_comps(req: CompsBuildRequest):
         engine = FinancialModelingEngine(_get_mlx())
         comps = await engine.build_comps(req.company, req.industry, req.peers)
         return asdict(comps)
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("build_comps failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="build_comps failed", detail=str(e), model_type="build_comps")
 
 
 @router.post("/sensitivity", summary="敏感性分析")
@@ -214,9 +219,10 @@ async def sensitivity_analysis(req: SensitivityRequest):
         engine = FinancialModelingEngine()
         result = await engine.sensitivity_analysis(model, req.wacc_range, req.growth_range)
         return result
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("sensitivity_analysis failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="sensitivity_analysis failed", detail=str(e), model_type="sensitivity_analysis")
 
 
 @router.post("/monte-carlo", summary="蒙特卡洛模拟")
@@ -237,9 +243,10 @@ async def monte_carlo(req: MonteCarloRequest):
         engine = FinancialModelingEngine()
         result = await engine.monte_carlo(model, req.simulations)
         return result
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("monte_carlo failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="monte_carlo failed", detail=str(e), model_type="monte_carlo")
 
 
 @router.post("/lbo", summary="AI辅助LBO模型")
@@ -248,9 +255,10 @@ async def build_lbo(req: LBOBuildRequest):
         engine = AdvancedModelingEngine(_get_mlx())
         model = await engine.build_lbo(req.company, req.ebitda, req.assumptions)
         return asdict(model)
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("build_lbo failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="build_lbo failed", detail=str(e), model_type="build_lbo")
 
 
 @router.post("/ddm", summary="DDM股利贴现计算")
@@ -264,9 +272,10 @@ async def calculate_ddm(req: DDMRequest):
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("calculate_ddm failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="calculate_ddm failed", detail=str(e), model_type="calculate_ddm")
 
 
 @router.post("/merger", summary="并购模型计算")
@@ -281,9 +290,10 @@ async def calculate_merger(req: MergerRequest):
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("calculate_merger failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="calculate_merger failed", detail=str(e), model_type="calculate_merger")
 
 
 @router.post("/apv", summary="APV调整现值计算")
@@ -300,9 +310,10 @@ async def calculate_apv(req: APVRequest):
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("calculate_apv failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="calculate_apv failed", detail=str(e), model_type="calculate_apv")
 
 
 @router.post("/eva", summary="EVA经济增加值计算")
@@ -316,9 +327,10 @@ async def calculate_eva(req: EVARequest):
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("calculate_eva failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="calculate_eva failed", detail=str(e), model_type="calculate_eva")
 
 
 @router.post("/ri", summary="RI剩余收益计算")
@@ -332,9 +344,10 @@ async def calculate_ri(req: RIRequest):
         )
         result = model.calculate()
         return {"result": result, "model": asdict(model)}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("calculate_ri failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="calculate_ri failed", detail=str(e), model_type="calculate_ri")
 
 
 @router.post("/portfolio/optimize", summary="投资组合优化")
@@ -356,9 +369,10 @@ async def optimize_portfolio(req: PortfolioOptimizeRequest):
             "min_volatility": min_vol,
             "total_simulated": len(portfolios),
         }
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("optimize_portfolio failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="optimize_portfolio failed", detail=str(e), model_type="optimize_portfolio")
 
 
 @router.get("/portfolio/frontier", summary="有效前沿示例数据")
@@ -377,9 +391,12 @@ async def efficient_frontier_sample():
             "max_sharpe": max_sharpe,
             "min_volatility": min_vol,
         }
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("efficient_frontier_sample failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(
+            message="efficient_frontier_sample failed", detail=str(e), model_type="efficient_frontier_sample"
+        )
 
 
 @router.post("/session", summary="创建交互式DCF会话")
@@ -390,9 +407,10 @@ async def create_session(req: SessionCreateRequest):
         _sessions[session_id] = session
         logger.info("Created session: %s", session_id)
         return {"session_id": session_id, "state": session.get_state()}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("create_session failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="create_session failed", detail=str(e), model_type="create_session")
 
 
 @router.put("/session/{session_id}", summary="更新会话假设")
@@ -403,9 +421,10 @@ async def update_session(session_id: str, req: SessionUpdateRequest):
         session = _sessions[session_id]
         result = session.update_assumption(req.key, req.value)
         return {"session_id": session_id, **result}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("update_session failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="update_session failed", detail=str(e), model_type="update_session")
 
 
 @router.post("/scenarios", summary="情景分析对比")
@@ -432,9 +451,10 @@ async def scenario_compare(req: ScenarioRequest):
             "comparison": manager.compare(),
             "summary": manager.get_summary(),
         }
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("scenario_compare failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="scenario_compare failed", detail=str(e), model_type="scenario_compare")
 
 
 class BatchDCFRequest(BaseModel):
@@ -446,9 +466,10 @@ async def batch_dcf(req: BatchDCFRequest):
     try:
         results = FinancialModelingEngine.batch_dcf(req.models)
         return {"results": results, "count": len(results)}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("batch_dcf failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="batch_dcf failed", detail=str(e), model_type="batch_dcf")
 
 
 class BLRequest(BaseModel):
@@ -496,9 +517,10 @@ async def black_litterman(req: BLRequest):
         return {"posterior_returns": posterior, **result}
     except HTTPException:
         raise
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("black_litterman failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="black_litterman failed", detail=str(e), model_type="black_litterman")
 
 
 @router.post("/yield-curve", summary="Nelson-Siegel收益率曲线(纯数学)")
@@ -507,9 +529,10 @@ async def yield_curve(req: YieldCurveRequest):
         yc = YieldCurve(beta0=req.beta0, beta1=req.beta1, beta2=req.beta2, beta3=req.beta3)
         rates = yc.nelson_siegel(req.maturities)
         return {"maturities": req.maturities, "rates": rates}
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("yield_curve failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="yield_curve failed", detail=str(e), model_type="yield_curve")
 
 
 @router.post("/yield-curve/calibrate", summary="Nelson-Siegel参数校准(纯数学)")
@@ -518,6 +541,7 @@ async def yield_curve_calibrate(req: YieldCurveCalibrateRequest):
         yc = YieldCurve()
         params = yc.calibrate(req.observed_maturities, req.observed_rates)
         return params
+    except ModelError:
+        raise
     except Exception as e:
-        logger.error("yield_curve_calibrate failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ModelError(message="yield_curve_calibrate failed", detail=str(e), model_type="yield_curve_calibrate")

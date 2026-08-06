@@ -22,6 +22,8 @@
 
 **Fusion-Finance** is a local AI-powered financial analysis platform, designed as a domestic alternative to **Claude Financial (CFS)**. Built on `fusion-mlx`, it provides comprehensive financial modeling, statement analysis, risk management, and report generation — all **100% offline** with zero data uploaded.
 
+v0.5.1: **Port migration** — service port 8200→11446 (issue #4), MLX base URL 11434→11432 (issue #3), aligning with the fusion ecosystem 114xx port allocation.
+
 v0.5.0: **Custom exception hierarchy** (6 typed error responses), **Dashboard aggregation endpoints** (company overview, market overview, service status), **Ruff lint clean**, **Test consolidation**, **fusion-studio GUI integration** (FinanceBridge + 8 views, PR [#87](https://github.com/dahai80/fusion-studio/pull/87)).
 
 ### Claude Financial Comparison
@@ -81,7 +83,7 @@ fusion-finance risk kyc "Company"
 fusion-finance report valuation "Apple" -o ./reports
 
 # Start API server
-fusion-finance serve --port 8200
+fusion-finance serve --port 11446
 # Or use start.sh
 ./start.sh start
 ```
@@ -93,7 +95,7 @@ fusion-finance serve --port 8200
 ### Start / Stop
 
 ```bash
-./start.sh start    # Start on port 8200
+./start.sh start    # Start on port 11446
 ./start.sh stop     # Stop
 ./start.sh restart  # Restart
 ./start.sh status   # Check status
@@ -122,41 +124,41 @@ fusion-finance serve --port 8200
 
 ```bash
 # Calculate DCF
-curl -X POST http://localhost:8200/api/v1/modeling/dcf/calculate \
+curl -X POST http://localhost:11446/api/v1/modeling/dcf/calculate \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"wacc":0.10,"terminal_growth":0.03}'
 
 # Screen stocks with growth preset
-curl -X POST http://localhost:8200/api/v1/statements/screener \
+curl -X POST http://localhost:11446/api/v1/statements/screener \
   -H "Content-Type: application/json" \
   -d '{"filters":{"preset":"growth"},"limit":5}'
 
 # Normalize A-stock financial data
-curl -X POST http://localhost:8200/api/v1/statements/normalize \
+curl -X POST http://localhost:11446/api/v1/statements/normalize \
   -H "Content-Type: application/json" \
   -d '{"data":{"营业收入":1000,"净利润":200},"standard":"A","company":"TestCo","period":"2024"}'
 
 # Health check
-curl http://localhost:8200/api/v1/
+curl http://localhost:11446/api/v1/
 
 # Dashboard: company overview
-curl -X POST http://localhost:8200/api/v1/dashboard/company \
+curl -X POST http://localhost:11446/api/v1/dashboard/company \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"ebit_margin":[0.2,0.22,0.24],"wacc":0.10}'
 
 # Dashboard: market overview
-curl http://localhost:8200/api/v1/dashboard/market?preset=quality&limit=5
+curl http://localhost:11446/api/v1/dashboard/market?preset=quality&limit=5
 
 # Dashboard: service status
-curl http://localhost:8200/api/v1/dashboard/status
+curl http://localhost:11446/api/v1/dashboard/status
 
 # AI Copilot chat
-curl -X POST http://localhost:8200/api/v1/copilot/chat \
+curl -X POST http://localhost:11446/api/v1/copilot/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"分析Apple的DCF估值","session_id":"demo"}'
 ```
 
-Swagger docs: `http://localhost:8200/docs`
+Swagger docs: `http://localhost:11446/docs`
 
 ---
 
@@ -281,8 +283,8 @@ Swagger docs: `http://localhost:8200/docs`
 | Setting | Default | Env Var |
 |---------|---------|---------|
 | Host | `0.0.0.0` | `FUSION_FINANCE_HOST` |
-| Port | `8200` | `FUSION_FINANCE_PORT` |
-| MLX URL | `http://localhost:11434/v1` | `FUSION_FINANCE_MLX_URL` |
+| Port | `11446` | `FUSION_FINANCE_PORT` |
+| MLX URL | `http://localhost:11432/v1` | `FUSION_FINANCE_MLX_URL` |
 | Model | `qwen3.5-9b` | `FUSION_FINANCE_MODEL` |
 | Data dir | `~/.fusion/finance` | `FUSION_FINANCE_DATA_DIR` |
 
@@ -293,7 +295,7 @@ Swagger docs: `http://localhost:8200/docs`
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │                 CLI / API Server                               │
-│   Click CLI (fusion-finance)  │  FastAPI (localhost:8200)     │
+│   Click CLI (fusion-finance)  │  FastAPI (localhost:11446)     │
 ├───────────────────────────────────────────────────────────────┤
 │               API Middleware & SSE                             │
 │  AuditMiddleware │ RateLimitMiddleware │ APIKeyMiddleware      │
@@ -309,7 +311,7 @@ Swagger docs: `http://localhost:8200/docs`
 │  Chart Modules (4)                                            │
 ├───────────────────────────────────────────────────────────────┤
 │                 AI Backend (fusion-mlx)                        │
-│  HTTP → http://localhost:11434/v1/chat/completions            │
+│  HTTP → http://localhost:11432/v1/chat/completions            │
 │  MLXClient with retry + httpx fallback                        │
 │  100% local, zero data upload                                 │
 └───────────────────────────────────────────────────────────────┘

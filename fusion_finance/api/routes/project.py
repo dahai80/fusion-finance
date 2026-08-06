@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ...exceptions import FinanceError
 from ...project import ProjectExporter, ProjectManager, VersionControl
 
 logger = logging.getLogger(__name__)
@@ -49,9 +50,10 @@ async def list_projects():
     try:
         projects = _manager.list_projects()
         return {"projects": projects, "total": len(projects)}
+    except FinanceError:
+        raise
     except Exception as e:
-        logger.error("list_projects failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise FinanceError(message="list_projects failed", detail=str(e))
 
 
 @router.post("/create", summary="创建项目")
@@ -59,9 +61,10 @@ async def create_project(req: ProjectCreateRequest):
     try:
         proj = _manager.create(name=req.name, description=req.description, metadata=req.metadata)
         return {"id": proj.id, "name": proj.name, "created_at": proj.created_at}
+    except FinanceError:
+        raise
     except Exception as e:
-        logger.error("create_project failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise FinanceError(message="create_project failed", detail=str(e))
 
 
 @router.get("/{project_id}", summary="获取项目详情")
