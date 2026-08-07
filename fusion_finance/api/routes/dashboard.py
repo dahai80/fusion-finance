@@ -121,7 +121,7 @@ async def service_status():
 
     return {
         "service": "fusion-finance",
-        "version": "0.5.1",
+        "version": "0.5.2",
         "mlx": {"status": mlx_status, "models": model_names},
         "modules": [
             "modeling",

@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Fusion-Finance API",
         description="Local AI-powered financial analysis platform — Claude Finance domestic alternative",
-        version="0.5.1",
+        version="0.5.2",
         lifespan=lifespan,
     )
 
