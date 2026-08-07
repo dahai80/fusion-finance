@@ -30,3 +30,7 @@ CLAUDE.md
 proj_*
 plan.md
 report_*.md
+
+# Runtime artifacts
+.fusion-finance.log
+.fusion-finance.pid

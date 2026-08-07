@@ -129,11 +129,17 @@ class ReportFormatter:
             html = content
             if template_name and template_data:
                 html = self.render_html(template_name, template_data)
-            self._export_pdf(html, path)
+            actual = self._export_pdf(html, path)
+            if actual:
+                path = actual
         elif fmt == FORMAT_PPTX:
-            self._export_pptx(content, path, template_data)
+            actual = self._export_pptx(content, path, template_data)
+            if actual:
+                path = actual
         elif fmt == FORMAT_XLSX:
-            self._export_xlsx(content, path, template_data)
+            actual = self._export_xlsx(content, path, template_data)
+            if actual:
+                path = actual
         elif fmt == FORMAT_JSON:
             data = template_data or {"content": content}
             path.write_text(json.dumps(data, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
@@ -149,21 +155,24 @@ class ReportFormatter:
             html_path = path.with_suffix(".html")
             html_path.write_text(html, encoding="utf-8")
             logger.info("PDF unavailable, saved HTML instead: %s", html_path)
-            return
+            return html_path
         try:
             doc = self._weasyprint.HTML(string=html)
             doc.write_pdf(str(path))
             logger.info("Exported PDF: %s", path)
+            return None
         except Exception as e:
             logger.error("PDF export failed: %s", e)
             html_path = path.with_suffix(".html")
             html_path.write_text(html, encoding="utf-8")
+            return html_path
 
     def _export_pptx(self, content: str, path: Path, data: dict[str, Any] | None = None):
         if not self._pptx:
             logger.warning("python-pptx unavailable, falling back to text")
-            path.with_suffix(".txt").write_text(content, encoding="utf-8")
-            return
+            txt_path = path.with_suffix(".txt")
+            txt_path.write_text(content, encoding="utf-8")
+            return txt_path
         try:
             prs = self._pptx()
             title = data.get("company", "Report") if data else "Report"
@@ -178,16 +187,19 @@ class ReportFormatter:
                 cs.placeholders[1].text = chunk
             prs.save(str(path))
             logger.info("Exported PPTX: %s", path)
+            return None
         except Exception as e:
             logger.error("PPTX export failed: %s", e)
-            path.with_suffix(".txt").write_text(content, encoding="utf-8")
+            txt_path = path.with_suffix(".txt")
+            txt_path.write_text(content, encoding="utf-8")
+            return txt_path
 
     def _export_xlsx(self, content: str, path: Path, data: dict[str, Any] | None = None):
         if not self._openpyxl:
             logger.warning("openpyxl unavailable, falling back to CSV")
             csv_path = path.with_suffix(".csv")
             csv_path.write_text(content, encoding="utf-8")
-            return
+            return csv_path
         try:
             wb = self._openpyxl.Workbook()
             ws = wb.active
@@ -206,10 +218,12 @@ class ReportFormatter:
                     ws.append([line])
             wb.save(str(path))
             logger.info("Exported XLSX: %s", path)
+            return None
         except Exception as e:
             logger.error("XLSX export failed: %s", e)
             csv_path = path.with_suffix(".csv")
             csv_path.write_text(content, encoding="utf-8")
+            return csv_path
 
 
 def _split_content(text: str, max_chars: int = 800) -> list[str]:

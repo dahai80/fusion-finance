@@ -127,10 +127,10 @@ class TechnicalIndicators:
     def macd(prices):
         ema12 = TechnicalIndicators.ema(prices, 12)
         ema26 = TechnicalIndicators.ema(prices, 26)
-        if len(ema12) < 9:
+        if len(ema26) < 9:
             return []
         offset = len(ema12) - len(ema26)
-        macd_line = [ema12[i] - ema26[i - offset] for i in range(len(ema12))]
+        macd_line = [ema12[i + offset] - ema26[i] for i in range(len(ema26))]
         signal = TechnicalIndicators.ema(macd_line, 9)
         return [
             {
