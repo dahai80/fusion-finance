@@ -82,6 +82,6 @@ class RiskModelingEngine:
                 impact=-0.10,
                 probability="medium",
                 affected_factors=["信用债", "贷款质量", "CDS"],
-                mitigations="分散信用敞口,增持高评级债",
+                mitigations=["分散信用敞口", "增持高评级债"],
             ),
         ]

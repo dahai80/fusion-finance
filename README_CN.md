@@ -22,6 +22,8 @@
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
+v0.5.2：**生产验收加固** — 修复 4 个验收缺陷（短序列 MACD IndexError、压力测试 mitigations 类型错误、导出回退返回路径误导、start.sh 健康检查路径错误），新增异常体系与回归测试套件（+25 测试，共 522，覆盖率 86%），`exceptions.py` 覆盖率 44%→100%。
+
 v0.5.1：**端口迁移** — 服务端口 8200→11446（issue #4），MLX 基址 11434→11432（issue #3），对齐 fusion 生态 114xx 端口编排。
 
 v0.5.0 新增：**自定义异常体系**（6类结构化错误响应）、**仪表盘聚合端点**（公司全景、市场概览、服务状态）、**Ruff 零告警**、**测试整合**、**fusion-studio GUI 集成**（FinanceBridge + 8 视图，PR [#87](https://github.com/dahai80/fusion-studio/pull/87)）。

@@ -54,7 +54,7 @@ status() {
         PID=$(cat "$PID_FILE")
         echo "✅ Fusion-Finance running (PID $PID)"
         echo "   API: http://${HOST}:${PORT}/docs"
-        curl -s "http://${HOST}:${PORT}/api/v1/health" 2>/dev/null | python -m json.tool 2>/dev/null || echo "   (health check failed)"
+        curl -s "http://${HOST}:${PORT}/api/v1/ready" 2>/dev/null | python -m json.tool 2>/dev/null || echo "   (health check failed)"
     else
         echo "❌ Fusion-Finance not running"
     fi

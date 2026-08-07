@@ -22,6 +22,8 @@
 
 **Fusion-Finance** is a local AI-powered financial analysis platform, designed as a domestic alternative to **Claude Financial (CFS)**. Built on `fusion-mlx`, it provides comprehensive financial modeling, statement analysis, risk management, and report generation — all **100% offline** with zero data uploaded.
 
+v0.5.2: **Production acceptance hardening** — 4 verified bug fixes (MACD IndexError on short series, stress-test mitigations type, export fallback return paths, start.sh health path), dedicated exception + regression test suites (+25 tests, 522 total, 86% coverage), `exceptions.py` coverage 44%→100%.
+
 v0.5.1: **Port migration** — service port 8200→11446 (issue #4), MLX base URL 11434→11432 (issue #3), aligning with the fusion ecosystem 114xx port allocation.
 
 v0.5.0: **Custom exception hierarchy** (6 typed error responses), **Dashboard aggregation endpoints** (company overview, market overview, service status), **Ruff lint clean**, **Test consolidation**, **fusion-studio GUI integration** (FinanceBridge + 8 views, PR [#87](https://github.com/dahai80/fusion-studio/pull/87)).
