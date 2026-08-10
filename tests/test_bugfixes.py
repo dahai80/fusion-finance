@@ -42,8 +42,15 @@ class TestStressTestMitigationsType:
         assert len(credit.mitigations) == 2
 
     def test_stress_test_accepts_custom_scenarios(self):
-        custom = [{"scenario": "汇率贬值10%", "impact": -0.08, "probability": "high",
-                   "affected_factors": ["外币负债"], "mitigations": ["外汇远期对冲"]}]
+        custom = [
+            {
+                "scenario": "汇率贬值10%",
+                "impact": -0.08,
+                "probability": "high",
+                "affected_factors": ["外币负债"],
+                "mitigations": ["外汇远期对冲"],
+            }
+        ]
         scenarios = RiskModelingEngine.stress_test_scenarios(scenarios=custom)
         names = [s.scenario for s in scenarios]
         assert "汇率贬值10%" in names

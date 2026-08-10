@@ -93,13 +93,15 @@ class RiskModelingEngine:
                 if isinstance(s, StressTestResult):
                     base.append(s)
                 elif isinstance(s, dict):
-                    base.append(StressTestResult(
-                        scenario=str(s.get("scenario", "")),
-                        impact=float(s.get("impact", 0.0) or 0.0),
-                        probability=str(s.get("probability", "low")),
-                        affected_factors=list(s.get("affected_factors", []) or []),
-                        mitigations=list(s.get("mitigations", []) or []),
-                    ))
+                    base.append(
+                        StressTestResult(
+                            scenario=str(s.get("scenario", "")),
+                            impact=float(s.get("impact", 0.0) or 0.0),
+                            probability=str(s.get("probability", "low")),
+                            affected_factors=list(s.get("affected_factors", []) or []),
+                            mitigations=list(s.get("mitigations", []) or []),
+                        )
+                    )
         if positions:
             total = sum(float(p.get("value", p.get("market_value", 0)) or 0) for p in positions)
             for r in base:
