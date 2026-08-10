@@ -174,6 +174,26 @@ class TestMLXClient:
         client = MLXClient()
         assert client.default_model != ""
 
+    def test_api_key_explicit(self):
+        client = MLXClient(api_key="secret123")
+        assert client.api_key == "secret123"
+
+    def test_api_key_env(self, monkeypatch):
+        monkeypatch.setenv("FUSION_MLX_API_KEY", "envkey")
+        client = MLXClient()
+        assert client.api_key == "envkey"
+
+    def test_httpx_auth_header(self, monkeypatch):
+        monkeypatch.setenv("FUSION_MLX_API_KEY", "envkey")
+        client = MLXClient(base_url="http://localhost:11434/v1")
+        assert client.httpx_client.headers.get("authorization") == "Bearer envkey"
+
+    def test_no_auth_header_without_key(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("FUSION_MLX_API_KEY", raising=False)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        client = MLXClient(base_url="http://localhost:11434/v1", api_key="")
+        assert "authorization" not in client.httpx_client.headers
+
 
 class TestModuleIntegrity:
     def test_import(self):

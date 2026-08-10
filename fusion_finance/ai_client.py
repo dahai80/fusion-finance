@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
+import os
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 from .config import DEFAULT_MLX_BASE_URL, DEFAULT_MODEL
@@ -18,20 +21,40 @@ except ImportError:
     logger.info("fusion_core not available, falling back to httpx")
 
 
+def _resolve_api_key(explicit: str = "") -> str:
+    if explicit:
+        return explicit
+    key = os.environ.get("FUSION_MLX_API_KEY", "")
+    if key:
+        return key
+    try:
+        cfg_path = Path.home() / ".fusion-mlx" / "settings.json"
+        if cfg_path.exists():
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            key = str(cfg.get("auth", {}).get("api_key", "") or "")
+            if key:
+                return key
+    except Exception as e:
+        logger.warning("read mlx settings.json failed: %s", e)
+    return ""
+
+
 class MLXClient:
-    def __init__(self, base_url: str = "", model: str = "", max_retries: int = 2):
+    def __init__(self, base_url: str = "", model: str = "", max_retries: int = 2, api_key: str = ""):
         self.base_url = base_url or DEFAULT_MLX_BASE_URL
         self.default_model = model or DEFAULT_MODEL
         self.max_retries = max_retries
+        self.api_key = _resolve_api_key(api_key)
         self._client: Any = None
         self._httpx_client: Any = None
         if _HAS_FUSION_CORE:
             self._client = FusionMLXClient(base_url=self.base_url)
         logger.info(
-            "MLXClient initialized, base_url=%s, model=%s, fusion_core=%s",
+            "MLXClient initialized, base_url=%s, model=%s, fusion_core=%s, api_key=%s",
             self.base_url,
             self.default_model,
             _HAS_FUSION_CORE,
+            "yes" if self.api_key else "no",
         )
 
     @property
@@ -39,7 +62,10 @@ class MLXClient:
         if self._httpx_client is None:
             import httpx
 
-            self._httpx_client = httpx.AsyncClient(base_url=self.base_url, timeout=120.0)
+            headers = {}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            self._httpx_client = httpx.AsyncClient(base_url=self.base_url, timeout=120.0, headers=headers)
         return self._httpx_client
 
     async def chat(
