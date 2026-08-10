@@ -41,6 +41,24 @@ class TestStressTestMitigationsType:
         assert credit.mitigations == ["分散信用敞口", "增持高评级债"]
         assert len(credit.mitigations) == 2
 
+    def test_stress_test_accepts_custom_scenarios(self):
+        custom = [{"scenario": "汇率贬值10%", "impact": -0.08, "probability": "high",
+                   "affected_factors": ["外币负债"], "mitigations": ["外汇远期对冲"]}]
+        scenarios = RiskModelingEngine.stress_test_scenarios(scenarios=custom)
+        names = [s.scenario for s in scenarios]
+        assert "汇率贬值10%" in names
+        fx = [s for s in scenarios if s.scenario == "汇率贬值10%"][0]
+        assert fx.impact == -0.08 and fx.probability == "high"
+
+    def test_stress_test_accepts_positions(self):
+        positions = [{"ticker": "600519", "value": 500000}]
+        scenarios = RiskModelingEngine.stress_test_scenarios(positions=positions)
+        assert len(scenarios) >= 3
+
+    def test_stress_test_backward_compatible_no_args(self):
+        scenarios = RiskModelingEngine.stress_test_scenarios()
+        assert len(scenarios) == 3
+
 
 class TestExportFallbackPaths:
     def test_pdf_fallback_returns_html(self):
