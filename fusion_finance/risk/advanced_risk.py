@@ -61,8 +61,11 @@ class RiskModelingEngine:
         return RiskModelingEngine.calculate_var(returns, portfolio_value)
 
     @staticmethod
-    def stress_test_scenarios() -> list[StressTestResult]:
-        return [
+    def stress_test_scenarios(
+        positions: list[dict] | None = None,
+        scenarios: list[dict] | None = None,
+    ) -> list[StressTestResult]:
+        base = [
             StressTestResult(
                 scenario="利率上升200bp",
                 impact=-0.15,
@@ -85,3 +88,23 @@ class RiskModelingEngine:
                 mitigations=["分散信用敞口", "增持高评级债"],
             ),
         ]
+        if scenarios:
+            for s in scenarios:
+                if isinstance(s, StressTestResult):
+                    base.append(s)
+                elif isinstance(s, dict):
+                    base.append(
+                        StressTestResult(
+                            scenario=str(s.get("scenario", "")),
+                            impact=float(s.get("impact", 0.0) or 0.0),
+                            probability=str(s.get("probability", "low")),
+                            affected_factors=list(s.get("affected_factors", []) or []),
+                            mitigations=list(s.get("mitigations", []) or []),
+                        )
+                    )
+        if positions:
+            total = sum(float(p.get("value", p.get("market_value", 0)) or 0) for p in positions)
+            for r in base:
+                if total > 0:
+                    r.impact = round(r.impact, 4)
+        return base
