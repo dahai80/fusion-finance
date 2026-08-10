@@ -22,6 +22,8 @@
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
+v0.5.3：**鉴权 + 压力测试接口** — `MLXClient` 支持 `api_key` 鉴权（显式 > `FUSION_MLX_API_KEY` 环境变量 > `~/.fusion-mlx/settings.json`，httpx 回退时注入 `Authorization: Bearer` 头，修复 fusion-mlx 401，issue #7/PR #8），`stress_test_scenarios(positions=None, scenarios=None)` 接受可选 kwargs 供下游持仓敏感压力测试（issue #9/PR #11），xlsx 导出测试兼容原生与回退路径（+7 测试，共 529，覆盖率 86%）。
+
 v0.5.2：**生产验收加固** — 修复 4 个验收缺陷（短序列 MACD IndexError、压力测试 mitigations 类型错误、导出回退返回路径误导、start.sh 健康检查路径错误），新增异常体系与回归测试套件（+25 测试，共 522，覆盖率 86%），`exceptions.py` 覆盖率 44%→100%。
 
 v0.5.1：**端口迁移** — 服务端口 8200→11446（issue #4），MLX 基址 11434→11432（issue #3），对齐 fusion 生态 114xx 端口编排。
