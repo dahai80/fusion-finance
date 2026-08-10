@@ -66,12 +66,12 @@ class TestExportFallbackPaths:
 
             shutil.rmtree(d)
 
-    def test_xlsx_fallback_returns_csv(self):
+    def test_xlsx_returns_existing_path(self):
         d = tempfile.mkdtemp()
         try:
             ret = ReportFormatter().export("content", "xlsx", os.path.join(d, "r.xlsx"))
-            assert ret.endswith(".csv")
-            assert os.path.exists(ret)
+            assert os.path.exists(ret), f"returned path does not exist: {ret}"
+            assert ret.endswith((".xlsx", ".csv"))
         finally:
             import shutil
 

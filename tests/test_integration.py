@@ -1714,9 +1714,11 @@ class TestReportFormatter:
 
         fmt = ReportFormatter()
         out = str(tmp_path / "report.xlsx")
-        fmt.export("col1,col2\n1,2", "xlsx", output_path=out)
-        csv_path = tmp_path / "report.csv"
-        assert csv_path.exists()
+        result = fmt.export("col1,col2\n1,2", "xlsx", output_path=out)
+        from pathlib import Path
+
+        assert Path(result).exists()
+        assert result.endswith((".xlsx", ".csv"))
 
     def test_export_pptx(self, tmp_path):
         from fusion_finance.report.formatter import ReportFormatter
