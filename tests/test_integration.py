@@ -992,7 +992,7 @@ class TestConfig:
         from fusion_finance.config import DEFAULT_HOST, DEFAULT_MLX_BASE_URL, DEFAULT_MODEL, DEFAULT_PORT
 
         assert DEFAULT_HOST == "0.0.0.0"
-        assert DEFAULT_PORT == 11446
+        assert DEFAULT_PORT == 11466
         assert DEFAULT_MLX_BASE_URL == "http://localhost:11432/v1"
         assert DEFAULT_MODEL != ""
 

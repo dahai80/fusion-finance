@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 
 
 @router.get("/", summary="健康检查")

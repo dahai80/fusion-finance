@@ -22,6 +22,8 @@
 
 **Fusion-Finance** is a local AI-powered financial analysis platform, designed as a domestic alternative to **Claude Financial (CFS)**. Built on `fusion-mlx`, it provides comprehensive financial modeling, statement analysis, risk management, and report generation — all **100% offline** with zero data uploaded.
 
+v0.5.4: **Port collision fix** — service bind port 11446→11466 (issue #13). 11446 was registered to `fusion-multi-node-mcp` cluster hub; finance binding it collided with the multi-node MCP gateway. Now binds 11466 (verified free across the 40-repo port registry). Changes only finance's own listen default; any client connecting to multi-node-mcp on 11446 is unaffected.
+
 v0.5.3: **Auth + stress-test interface** — `MLXClient` supports `api_key` auth (explicit > `FUSION_MLX_API_KEY` env > `~/.fusion-mlx/settings.json`, injects `Authorization: Bearer` header on httpx fallback, fixes fusion-mlx 401, issue #7/PR #8), `stress_test_scenarios(positions=None, scenarios=None)` accepts optional kwargs for downstream position-aware stress testing (issue #9/PR #11), xlsx export tests accept native and fallback paths (+7 tests, 529 total, 86% coverage).
 
 v0.5.2: **Production acceptance hardening** — 4 verified bug fixes (MACD IndexError on short series, stress-test mitigations type, export fallback return paths, start.sh health path), dedicated exception + regression test suites (+25 tests, 522 total, 86% coverage), `exceptions.py` coverage 44%→100%.
@@ -87,7 +89,7 @@ fusion-finance risk kyc "Company"
 fusion-finance report valuation "Apple" -o ./reports
 
 # Start API server
-fusion-finance serve --port 11446
+fusion-finance serve --port 11466
 # Or use start.sh
 ./start.sh start
 ```
@@ -99,7 +101,7 @@ fusion-finance serve --port 11446
 ### Start / Stop
 
 ```bash
-./start.sh start    # Start on port 11446
+./start.sh start    # Start on port 11466
 ./start.sh stop     # Stop
 ./start.sh restart  # Restart
 ./start.sh status   # Check status
@@ -128,41 +130,41 @@ fusion-finance serve --port 11446
 
 ```bash
 # Calculate DCF
-curl -X POST http://localhost:11446/api/v1/modeling/dcf/calculate \
+curl -X POST http://localhost:11466/api/v1/modeling/dcf/calculate \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"wacc":0.10,"terminal_growth":0.03}'
 
 # Screen stocks with growth preset
-curl -X POST http://localhost:11446/api/v1/statements/screener \
+curl -X POST http://localhost:11466/api/v1/statements/screener \
   -H "Content-Type: application/json" \
   -d '{"filters":{"preset":"growth"},"limit":5}'
 
 # Normalize A-stock financial data
-curl -X POST http://localhost:11446/api/v1/statements/normalize \
+curl -X POST http://localhost:11466/api/v1/statements/normalize \
   -H "Content-Type: application/json" \
   -d '{"data":{"营业收入":1000,"净利润":200},"standard":"A","company":"TestCo","period":"2024"}'
 
 # Health check
-curl http://localhost:11446/api/v1/
+curl http://localhost:11466/api/v1/
 
 # Dashboard: company overview
-curl -X POST http://localhost:11446/api/v1/dashboard/company \
+curl -X POST http://localhost:11466/api/v1/dashboard/company \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"ebit_margin":[0.2,0.22,0.24],"wacc":0.10}'
 
 # Dashboard: market overview
-curl http://localhost:11446/api/v1/dashboard/market?preset=quality&limit=5
+curl http://localhost:11466/api/v1/dashboard/market?preset=quality&limit=5
 
 # Dashboard: service status
-curl http://localhost:11446/api/v1/dashboard/status
+curl http://localhost:11466/api/v1/dashboard/status
 
 # AI Copilot chat
-curl -X POST http://localhost:11446/api/v1/copilot/chat \
+curl -X POST http://localhost:11466/api/v1/copilot/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"分析Apple的DCF估值","session_id":"demo"}'
 ```
 
-Swagger docs: `http://localhost:11446/docs`
+Swagger docs: `http://localhost:11466/docs`
 
 ---
 
@@ -287,7 +289,7 @@ Swagger docs: `http://localhost:11446/docs`
 | Setting | Default | Env Var |
 |---------|---------|---------|
 | Host | `0.0.0.0` | `FUSION_FINANCE_HOST` |
-| Port | `11446` | `FUSION_FINANCE_PORT` |
+| Port | `11466` | `FUSION_FINANCE_PORT` |
 | MLX URL | `http://localhost:11432/v1` | `FUSION_FINANCE_MLX_URL` |
 | Model | `qwen3.5-9b` | `FUSION_FINANCE_MODEL` |
 | Data dir | `~/.fusion/finance` | `FUSION_FINANCE_DATA_DIR` |
@@ -299,7 +301,7 @@ Swagger docs: `http://localhost:11446/docs`
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │                 CLI / API Server                               │
-│   Click CLI (fusion-finance)  │  FastAPI (localhost:11446)     │
+│   Click CLI (fusion-finance)  │  FastAPI (localhost:11466)     │
 ├───────────────────────────────────────────────────────────────┤
 │               API Middleware & SSE                             │
 │  AuditMiddleware │ RateLimitMiddleware │ APIKeyMiddleware      │

@@ -22,6 +22,8 @@
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
+v0.5.4：**端口冲突修复** — 服务绑定端口 11446→11466（issue #13）。11446 已登记给 `fusion-multi-node-mcp` 集群枢纽；finance 绑定该端口与 multi-node MCP 网关冲突。现绑定 11466（经 40 仓端口登记表核实空闲）。仅修改 finance 自身监听默认值；任何连接 multi-node-mcp 11446 的客户端不受影响。
+
 v0.5.3：**鉴权 + 压力测试接口** — `MLXClient` 支持 `api_key` 鉴权（显式 > `FUSION_MLX_API_KEY` 环境变量 > `~/.fusion-mlx/settings.json`，httpx 回退时注入 `Authorization: Bearer` 头，修复 fusion-mlx 401，issue #7/PR #8），`stress_test_scenarios(positions=None, scenarios=None)` 接受可选 kwargs 供下游持仓敏感压力测试（issue #9/PR #11），xlsx 导出测试兼容原生与回退路径（+7 测试，共 529，覆盖率 86%）。
 
 v0.5.2：**生产验收加固** — 修复 4 个验收缺陷（短序列 MACD IndexError、压力测试 mitigations 类型错误、导出回退返回路径误导、start.sh 健康检查路径错误），新增异常体系与回归测试套件（+25 测试，共 522，覆盖率 86%），`exceptions.py` 覆盖率 44%→100%。
@@ -87,7 +89,7 @@ fusion-finance risk kyc "目标公司"
 fusion-finance report valuation "公司A" -o ./reports
 
 # 启动 API 服务
-fusion-finance serve --port 11446
+fusion-finance serve --port 11466
 # 或使用 start.sh
 ./start.sh start
 ```
@@ -99,7 +101,7 @@ fusion-finance serve --port 11446
 ### 启停命令
 
 ```bash
-./start.sh start    # 启动（端口 11446）
+./start.sh start    # 启动（端口 11466）
 ./start.sh stop     # 停止
 ./start.sh restart  # 重启
 ./start.sh status   # 查看状态
@@ -128,41 +130,41 @@ fusion-finance serve --port 11446
 
 ```bash
 # 计算 DCF
-curl -X POST http://localhost:11446/api/v1/modeling/dcf/calculate \
+curl -X POST http://localhost:11466/api/v1/modeling/dcf/calculate \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"wacc":0.10,"terminal_growth":0.03}'
 
 # 成长策略选股
-curl -X POST http://localhost:11446/api/v1/statements/screener \
+curl -X POST http://localhost:11466/api/v1/statements/screener \
   -H "Content-Type: application/json" \
   -d '{"filters":{"preset":"growth"},"limit":5}'
 
 # A股财报标准化
-curl -X POST http://localhost:11446/api/v1/statements/normalize \
+curl -X POST http://localhost:11466/api/v1/statements/normalize \
   -H "Content-Type: application/json" \
   -d '{"data":{"营业收入":1000,"净利润":200},"standard":"A","company":"TestCo","period":"2024"}'
 
 # 健康检查
-curl http://localhost:11446/api/v1/
+curl http://localhost:11466/api/v1/
 
 # 仪表盘：公司全景
-curl -X POST http://localhost:11446/api/v1/dashboard/company \
+curl -X POST http://localhost:11466/api/v1/dashboard/company \
   -H "Content-Type: application/json" \
   -d '{"company":"Apple","revenue":[100,120,140],"ebit_margin":[0.2,0.22,0.24],"wacc":0.10}'
 
 # 仪表盘：市场概览
-curl http://localhost:11446/api/v1/dashboard/market?preset=quality&limit=5
+curl http://localhost:11466/api/v1/dashboard/market?preset=quality&limit=5
 
 # 仪表盘：服务状态
-curl http://localhost:11446/api/v1/dashboard/status
+curl http://localhost:11466/api/v1/dashboard/status
 
 # AI 助手对话
-curl -X POST http://localhost:11446/api/v1/copilot/chat \
+curl -X POST http://localhost:11466/api/v1/copilot/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"分析Apple的DCF估值","session_id":"demo"}'
 ```
 
-Swagger 文档：`http://localhost:11446/docs`
+Swagger 文档：`http://localhost:11466/docs`
 
 ---
 
@@ -287,7 +289,7 @@ Swagger 文档：`http://localhost:11446/docs`
 | 设置 | 默认值 | 环境变量 |
 |------|--------|----------|
 | 主机 | `0.0.0.0` | `FUSION_FINANCE_HOST` |
-| 端口 | `11446` | `FUSION_FINANCE_PORT` |
+| 端口 | `11466` | `FUSION_FINANCE_PORT` |
 | MLX 地址 | `http://localhost:11432/v1` | `FUSION_FINANCE_MLX_URL` |
 | 模型 | `qwen3.5-9b` | `FUSION_FINANCE_MODEL` |
 | 数据目录 | `~/.fusion/finance` | `FUSION_FINANCE_DATA_DIR` |
@@ -299,7 +301,7 @@ Swagger 文档：`http://localhost:11446/docs`
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │                 CLI / API 服务                                  │
-│   Click CLI (fusion-finance)  │  FastAPI (localhost:11446)     │
+│   Click CLI (fusion-finance)  │  FastAPI (localhost:11466)     │
 ├───────────────────────────────────────────────────────────────┤
 │               API 中间件与 SSE                                  │
 │  AuditMiddleware │ RateLimitMiddleware │ APIKeyMiddleware      │

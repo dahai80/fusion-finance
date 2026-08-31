@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     setup_logging()
     ensure_dirs()
-    logger.info("Fusion-Finance API started on port %s", app.state.port if hasattr(app.state, "port") else 11446)
+    logger.info("Fusion-Finance API started on port %s", app.state.port if hasattr(app.state, "port") else 11466)
     yield
     logger.info("Fusion-Finance API shutdown")
 
@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Fusion-Finance API",
         description="Local AI-powered financial analysis platform — Claude Finance domestic alternative",
-        version="0.5.3",
+        version="0.5.4",
         lifespan=lifespan,
     )
 

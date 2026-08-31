@@ -10,5 +10,5 @@
 100% 本地离线，基于 fusion-mlx，适配国内金融生态。
 """
 
-__version__ = "0.5.3"
+__version__ = "0.5.4"
 __app_name__ = "Fusion-Finance"
