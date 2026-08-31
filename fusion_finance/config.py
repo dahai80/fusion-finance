@@ -7,7 +7,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DEFAULT_HOST = "0.0.0.0"
-DEFAULT_PORT = 11446
+DEFAULT_PORT = 11466
 DEFAULT_MLX_BASE_URL = "http://localhost:11432/v1"
 DEFAULT_MODEL = "qwen3.5-9b"
 
