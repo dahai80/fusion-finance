@@ -3,16 +3,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from ...ai_client import MLXClient
 from ...config import EXPORT_DIR, MAX_LIST_LENGTH
 from ...exceptions import DataError, FinanceError, ReportError
 from ...modeling.engine import CompsAnalysis, DCFModel
 from ...report.formatter import SUPPORTED_FORMATS, ReportFormatter
 from ...report.reports import ReportGenerator
 from ...utils.safe_path import safe_join, sanitize_name
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +56,6 @@ class ExportRequest(BaseModel):
     template_name: str = ""
     template_data: dict[str, Any] | None = None
     name: str = ""
-
-
-def _get_mlx() -> MLXClient:
-    return MLXClient()
 
 
 def _build_dcf_from_req(req) -> DCFModel:
@@ -116,9 +112,9 @@ async def generate_pitchbook(req: PitchbookRequest):
 
 
 @router.post("/research", summary="AI生成深度投研报告")
-async def generate_research_report(req: ResearchReportRequest):
+async def generate_research_report(req: ResearchReportRequest, mlx=Depends(get_mlx_client)):
     try:
-        generator = ReportGenerator(_get_mlx())
+        generator = ReportGenerator(mlx)
         content = await generator.generate_research_report(req.company, req.industry, req.data)
         return {"company": req.company, "content": content, "format": "markdown"}
     except ReportError:
@@ -155,7 +151,18 @@ async def export_report(fmt: str, req: ExportRequest):
             template_name=req.template_name,
             template_data=req.template_data,
         )
-        return {"format": fmt_lower, "path": path, "status": "ok"}
+        actual_ext = str(path).rsplit(".", 1)[-1].lower() if "." in str(path) else fmt_lower
+        actual_format = "markdown" if actual_ext == "md" else actual_ext
+        degraded = actual_format != fmt_lower
+        if degraded:
+            logger.warning("export_report degraded: requested %s but wrote %s at %s", fmt_lower, actual_format, path)
+        return {
+            "format": actual_format,
+            "requested_format": fmt_lower,
+            "degraded": degraded,
+            "path": path,
+            "status": "ok",
+        }
     except ValueError as e:
         logger.warning("export_report value error: %s", e)
         raise HTTPException(status_code=400, detail="invalid export request")

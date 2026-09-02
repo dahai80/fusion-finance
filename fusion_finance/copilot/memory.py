@@ -53,6 +53,8 @@ class ConversationMemory:
         if len(session["messages"]) > self._max_history:
             dropped = session["messages"].pop(0)
             session["byte_size"] -= len(dropped["content"].encode("utf-8", errors="replace"))
+            if session["byte_size"] < 0:
+                session["byte_size"] = 0
         self._enforce_session_byte_cap(session_id)
         self._sessions.move_to_end(session_id)
 
@@ -106,8 +108,8 @@ class ConversationMemory:
 
     def _ensure_capacity(self) -> None:
         while len(self._sessions) >= self._max_sessions:
-            self._sessions.popitem(last=False)
-            logger.debug("Evicted oldest session")
+            sid, _ = self._sessions.popitem(last=False)
+            logger.debug("Evicted oldest session %s", sid)
 
     def _enforce_session_byte_cap(self, session_id: str) -> None:
         session = self._sessions.get(session_id)

@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from ...ai_client import MLXClient
+from ... import __version__
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-VERSION = "0.5.4"
+VERSION = __version__
 
 
 @router.get("/", summary="健康检查")
@@ -19,9 +20,8 @@ async def health_check():
 
 
 @router.get("/ready", summary="就绪检查")
-async def readiness_check():
+async def readiness_check(client=Depends(get_mlx_client)):
     try:
-        client = MLXClient()
         result = await client.health_check()
         if result.get("status") == "ok":
             return {"status": "ready", "mlx": "connected", "models": result.get("models", [])}

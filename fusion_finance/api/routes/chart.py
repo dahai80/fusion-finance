@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _renderer = ChartRenderer()
+MAX_INNER_LENGTH = 1000
+InnerFloatList = Annotated[list[float], Field(max_length=MAX_INNER_LENGTH)]
 
 
 class CandlestickRequest(BaseModel):
@@ -23,7 +26,7 @@ class CandlestickRequest(BaseModel):
 
 
 class HeatmapRequest(BaseModel):
-    matrix: list[list[float]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    matrix: list[InnerFloatList] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     row_labels: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     col_labels: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     title: str = "Sensitivity Matrix"

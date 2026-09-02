@@ -4,16 +4,16 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from ...ai_client import MLXClient
 from ...config import MAX_LIST_LENGTH, MAX_SIMULATIONS
 from ...exceptions import RiskError
 from ...risk.advanced_risk import RiskModelingEngine, StressTestResult
 from ...risk.engine import RiskComplianceEngine
 from ...risk.entity_resolution import EntityResolver
 from ...risk.sanctions import SanctionsEngine
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +57,10 @@ class StressTestRequest(BaseModel):
     mitigations: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
 
 
-def _get_mlx() -> MLXClient:
-    return MLXClient()
-
-
 @router.post("/kyc", summary="AI KYC尽职调查")
-async def kyc_screening(req: KYCRequest):
+async def kyc_screening(req: KYCRequest, mlx=Depends(get_mlx_client)):
     try:
-        engine = RiskComplianceEngine(_get_mlx())
+        engine = RiskComplianceEngine(mlx)
         result = await engine.kyc_screening(req.entity, req.jurisdiction)
         return asdict(result)
     except RiskError:
@@ -75,9 +71,9 @@ async def kyc_screening(req: KYCRequest):
 
 
 @router.post("/credit", summary="AI信用评估")
-async def credit_assessment(req: CreditRequest):
+async def credit_assessment(req: CreditRequest, mlx=Depends(get_mlx_client)):
     try:
-        engine = RiskComplianceEngine(_get_mlx())
+        engine = RiskComplianceEngine(mlx)
         result = await engine.credit_assessment(req.entity, req.financials)
         return asdict(result)
     except RiskError:
@@ -88,9 +84,9 @@ async def credit_assessment(req: CreditRequest):
 
 
 @router.post("/compliance", summary="AI合规审查")
-async def compliance_check(req: ComplianceRequest):
+async def compliance_check(req: ComplianceRequest, mlx=Depends(get_mlx_client)):
     try:
-        engine = RiskComplianceEngine(_get_mlx())
+        engine = RiskComplianceEngine(mlx)
         result = await engine.compliance_check(req.contract, req.regulations)
         return result
     except RiskError:

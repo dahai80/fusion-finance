@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,35 @@ def _resolve_api_key(explicit: str = "") -> str:
     return ""
 
 
+class _CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5, recovery_seconds: float = 30.0):
+        self.failure_threshold = failure_threshold
+        self.recovery_seconds = recovery_seconds
+        self._failures = 0
+        self._opened_at = 0.0
+
+    @property
+    def is_open(self) -> bool:
+        if self._failures < self.failure_threshold:
+            return False
+        if time.monotonic() - self._opened_at > self.recovery_seconds:
+            logger.warning("Circuit breaker half-open after %.0fs recovery", self.recovery_seconds)
+            self._failures = 0
+            return False
+        return True
+
+    def record_failure(self) -> None:
+        self._failures += 1
+        if self._failures == self.failure_threshold:
+            self._opened_at = time.monotonic()
+            logger.warning("Circuit breaker OPEN after %d failures", self._failures)
+
+    def record_success(self) -> None:
+        if self._failures:
+            self._failures = 0
+            logger.info("Circuit breaker reset on success")
+
+
 class MLXClient:
     def __init__(self, base_url: str = "", model: str = "", max_retries: int = 2, api_key: str = ""):
         self.base_url = base_url or DEFAULT_MLX_BASE_URL
@@ -50,6 +80,7 @@ class MLXClient:
         self._client: Any = None
         self._httpx_client: Any = None
         self.last_error: str = ""
+        self._breaker = _CircuitBreaker()
         if _HAS_FUSION_CORE:
             self._client = FusionMLXClient(base_url=self.base_url)
         logger.info(
@@ -68,7 +99,8 @@ class MLXClient:
             headers = {}
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
-            self._httpx_client = httpx.AsyncClient(base_url=self.base_url, timeout=120.0, headers=headers)
+            limits = httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0)
+            self._httpx_client = httpx.AsyncClient(base_url=self.base_url, timeout=30.0, headers=headers, limits=limits)
         return self._httpx_client
 
     async def chat(
@@ -81,6 +113,9 @@ class MLXClient:
         model = model or self.default_model
         last_err: Exception | None = None
         self.last_error = ""
+        if self._breaker.is_open:
+            logger.warning("chat rejected: circuit breaker open")
+            raise AIClientError(message="circuit breaker open", detail="downstream unhealthy", provider=self.base_url)
         for attempt in range(self.max_retries + 1):
             try:
                 if _HAS_FUSION_CORE and self._client is not None:
@@ -94,6 +129,7 @@ class MLXClient:
                 else:
                     content = await self._chat_httpx(messages, model, temperature, max_tokens)
                 logger.debug("chat response len=%d, attempt=%d", len(content), attempt)
+                self._breaker.record_success()
                 return content
             except (TypeError, AttributeError, ValueError) as e:
                 logger.error("chat programming error (not retried): %s", e)
@@ -108,7 +144,8 @@ class MLXClient:
         err_msg = f"chat all retries exhausted: {last_err}"
         logger.error(err_msg)
         self.last_error = str(last_err) if last_err else "unknown"
-        return ""
+        self._breaker.record_failure()
+        raise AIClientError(message="chat retries exhausted", detail=self.last_error, provider=self.base_url)
 
     async def _chat_httpx(
         self,

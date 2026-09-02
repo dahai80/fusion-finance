@@ -157,6 +157,8 @@ class MarketDataAdapter:
                 "volume": q.volume,
                 "change_pct": q.change_pct,
                 "timestamp": q.timestamp,
+                "is_synthetic": True,
+                "source": "simulator",
             }
             for q in quotes
         ]
@@ -171,6 +173,8 @@ class MarketDataAdapter:
                 "low": b.low,
                 "close": b.close,
                 "volume": b.volume,
+                "is_synthetic": True,
+                "source": "simulator",
             }
             for b in series
         ]
@@ -179,6 +183,15 @@ class MarketDataAdapter:
         data = self._csv_loader.load(source)
         if not data:
             return {"symbol": "", "bars": [], "count": 0}
+        if data:
+            sample = data[0]
+            missing = [f for f in (symbol_field, close_field) if f not in sample]
+            if missing:
+                logger.warning(
+                    "load_market_csv: expected fields %s missing from CSV headers %s; values will be zero/empty",
+                    missing,
+                    list(sample.keys()),
+                )
         bars = []
         for row in data:
             try:
@@ -190,6 +203,8 @@ class MarketDataAdapter:
                         "high": float(row.get("high", row.get(close_field, 0))),
                         "low": float(row.get("low", row.get(close_field, 0))),
                         "volume": int(row.get("volume", 0)) if row.get("volume") else 0,
+                        "is_synthetic": False,
+                        "source": "csv",
                     }
                 )
             except (ValueError, TypeError):

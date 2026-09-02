@@ -104,7 +104,7 @@ class TestWSCopilot:
             yield {"type": "text", "content": " there"}
 
         with (
-            patch("fusion_finance.api.routes.ws.MLXClient") as MockMLX,
+            patch("fusion_finance.api.routes.ws.get_mlx_client") as MockMLX,
             patch("fusion_finance.api.routes.ws.CopilotEngine") as MockEngine,
         ):
             MockMLX.return_value = MagicMock()
@@ -631,6 +631,7 @@ class TestMLXClient:
     async def test_chat_retries_on_failure(self):
         import fusion_finance.ai_client as ai_client_mod
         from fusion_finance.ai_client import MLXClient
+        from fusion_finance.exceptions import AIClientError
 
         mock_mlx = MagicMock()
         call_count = 0
@@ -646,8 +647,8 @@ class TestMLXClient:
         original_has = ai_client_mod._HAS_FUSION_CORE
         ai_client_mod._HAS_FUSION_CORE = True
         try:
-            result = await client.chat([{"role": "user", "content": "hi"}])
-            assert result == ""
+            with pytest.raises(AIClientError):
+                await client.chat([{"role": "user", "content": "hi"}])
             assert call_count == 2
         finally:
             ai_client_mod._HAS_FUSION_CORE = original_has
@@ -2027,15 +2028,19 @@ class TestRiskRoutes:
         from fusion_finance.api.app import create_app
 
         app = create_app()
-        with patch("fusion_finance.api.routes.risk._get_mlx") as mock_mlx:
-            mock_client = MagicMock()
-            mock_client.chat = AsyncMock(
-                return_value='{"risk_level":"LOW","risk_score":10,"findings":[],"recommendations":["OK"]}'
-            )
-            mock_mlx.return_value = mock_client
+        from fusion_finance.api.dependencies import get_mlx_client
+
+        mock_client = MagicMock()
+        mock_client.chat = AsyncMock(
+            return_value='{"risk_level":"LOW","risk_score":10,"findings":[],"recommendations":["OK"]}'
+        )
+        app.dependency_overrides[get_mlx_client] = lambda: mock_client
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post("/api/v1/risk/kyc", json={"entity": "GoodCorp", "jurisdiction": "CN"})
                 assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
 
     async def test_credit_assessment(self):
         from httpx import ASGITransport, AsyncClient
@@ -2043,17 +2048,21 @@ class TestRiskRoutes:
         from fusion_finance.api.app import create_app
 
         app = create_app()
-        with patch("fusion_finance.api.routes.risk._get_mlx") as mock_mlx:
-            mock_client = MagicMock()
-            mock_client.chat = AsyncMock(
-                return_value='{"credit_rating":"BBB","score":70,"risk_factors":[],"recommendations":["Monitor"]}'
-            )
-            mock_mlx.return_value = mock_client
+        from fusion_finance.api.dependencies import get_mlx_client
+
+        mock_client = MagicMock()
+        mock_client.chat = AsyncMock(
+            return_value='{"credit_rating":"BBB","score":70,"risk_factors":[],"recommendations":["Monitor"]}'
+        )
+        app.dependency_overrides[get_mlx_client] = lambda: mock_client
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post(
                     "/api/v1/risk/credit", json={"entity": "MidCorp", "financials": {"revenue": 500}}
                 )
                 assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ── API Routes: statements.py Tests ──
@@ -2142,15 +2151,19 @@ class TestStatementsRoutes:
         from fusion_finance.api.app import create_app
 
         app = create_app()
-        with patch("fusion_finance.api.routes.statements._get_mlx") as mock_mlx:
-            mock_client = MagicMock()
-            mock_client.chat = AsyncMock(return_value='{"strengths":[],"weaknesses":[],"key_ratios":{}}')
-            mock_mlx.return_value = mock_client
+        from fusion_finance.api.dependencies import get_mlx_client
+
+        mock_client = MagicMock()
+        mock_client.chat = AsyncMock(return_value='{"strengths":[],"weaknesses":[],"key_ratios":{}}')
+        app.dependency_overrides[get_mlx_client] = lambda: mock_client
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post(
                     "/api/v1/statements/analyze", json={"company": "TestCo", "data": {"revenue": 100}}
                 )
                 assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ── API Routes: copilot.py Tests ──
@@ -2161,12 +2174,13 @@ class TestCopilotRoutes:
         from httpx import ASGITransport, AsyncClient
 
         from fusion_finance.api.app import create_app
+        from fusion_finance.api.dependencies import get_mlx_client
 
         app = create_app()
-        with patch("fusion_finance.api.routes.copilot.MLXClient") as MockMLX:
-            mock_mlx = MagicMock()
-            mock_mlx.chat = AsyncMock(return_value="Financial analysis reply")
-            MockMLX.return_value = mock_mlx
+        mock_mlx = MagicMock()
+        mock_mlx.chat = AsyncMock(return_value="Financial analysis reply")
+        app.dependency_overrides[get_mlx_client] = lambda: mock_mlx
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post(
                     "/api/v1/copilot/chat", json={"message": "What is WACC?", "session_id": "test-session"}
@@ -2174,50 +2188,61 @@ class TestCopilotRoutes:
                 assert resp.status_code == 200
                 body = resp.json()
                 assert "reply" in body
+        finally:
+            app.dependency_overrides.clear()
 
     async def test_chat_with_session(self):
         from httpx import ASGITransport, AsyncClient
 
         from fusion_finance.api.app import create_app
+        from fusion_finance.api.dependencies import get_mlx_client
 
         app = create_app()
-        with patch("fusion_finance.api.routes.copilot.MLXClient") as MockMLX:
-            mock_mlx = MagicMock()
-            mock_mlx.chat = AsyncMock(return_value="Reply")
-            MockMLX.return_value = mock_mlx
+        mock_mlx = MagicMock()
+        mock_mlx.chat = AsyncMock(return_value="Reply")
+        app.dependency_overrides[get_mlx_client] = lambda: mock_mlx
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post("/api/v1/copilot/chat", json={"message": "hi", "session_id": "sess-123"})
                 assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
 
     async def test_history_endpoint(self):
         from httpx import ASGITransport, AsyncClient
 
         from fusion_finance.api.app import create_app
+        from fusion_finance.api.dependencies import get_mlx_client
 
         app = create_app()
-        with patch("fusion_finance.api.routes.copilot.MLXClient") as MockMLX:
-            mock_mlx = MagicMock()
-            MockMLX.return_value = mock_mlx
+        mock_mlx = MagicMock()
+        app.dependency_overrides[get_mlx_client] = lambda: mock_mlx
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get("/api/v1/copilot/history/test-session")
                 assert resp.status_code == 200
                 body = resp.json()
                 assert "messages" in body
+        finally:
+            app.dependency_overrides.clear()
 
     async def test_sessions_endpoint(self):
         from httpx import ASGITransport, AsyncClient
 
         from fusion_finance.api.app import create_app
+        from fusion_finance.api.dependencies import get_mlx_client
 
         app = create_app()
-        with patch("fusion_finance.api.routes.copilot.MLXClient") as MockMLX:
-            mock_mlx = MagicMock()
-            MockMLX.return_value = mock_mlx
+        mock_mlx = MagicMock()
+        app.dependency_overrides[get_mlx_client] = lambda: mock_mlx
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get("/api/v1/copilot/sessions")
                 assert resp.status_code == 200
                 body = resp.json()
                 assert "sessions" in body
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ── API Routes: modeling.py Tests ──
@@ -2631,17 +2656,20 @@ class TestReportRoutes:
         from httpx import ASGITransport, AsyncClient
 
         from fusion_finance.api.app import create_app
+        from fusion_finance.api.dependencies import get_mlx_client
 
         app = create_app()
-        with patch("fusion_finance.api.routes.report._get_mlx") as mock_mlx:
-            mock_client = MagicMock()
-            mock_client.chat = AsyncMock(return_value="Research report content")
-            mock_mlx.return_value = mock_client
+        mock_client = MagicMock()
+        mock_client.chat = AsyncMock(return_value="Research report content")
+        app.dependency_overrides[get_mlx_client] = lambda: mock_client
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post(
                     "/api/v1/report/research", json={"company": "Apple", "industry": "Tech", "data": {}}
                 )
                 assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ── API Routes: project.py Tests ──
@@ -2993,17 +3021,20 @@ class TestRiskRoutesExtra:
         from httpx import ASGITransport, AsyncClient
 
         from fusion_finance.api.app import create_app
+        from fusion_finance.api.dependencies import get_mlx_client
 
         app = create_app()
-        with patch("fusion_finance.api.routes.risk._get_mlx") as mock_mlx:
-            mock_client = MagicMock()
-            mock_client.chat = AsyncMock(return_value='{"compliant":true,"issues":[],"recommendations":[]}')
-            mock_mlx.return_value = mock_client
+        mock_client = MagicMock()
+        mock_client.chat = AsyncMock(return_value='{"compliant":true,"issues":[],"recommendations":[]}')
+        app.dependency_overrides[get_mlx_client] = lambda: mock_client
+        try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post(
                     "/api/v1/risk/compliance", json={"contract": "Test contract", "regulations": "CN"}
                 )
                 assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
 
     async def test_var_with_empty_returns(self):
         from httpx import ASGITransport, AsyncClient

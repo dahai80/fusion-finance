@@ -1,47 +1,27 @@
 from __future__ import annotations
 
 import logging
-from xml.sax.saxutils import escape
+
+from ..exceptions import FinanceError
+from ._common import MAX_CELLS, SVG_WIDTH, _empty_svg, _esc, _plot_area, _svg_wrap
 
 logger = logging.getLogger(__name__)
 
 
-def _esc(s: str) -> str:
-    return escape(str(s))
-
-
-SVG_WIDTH = 800
-SVG_HEIGHT = 500
-MARGIN = {"top": 40, "right": 30, "bottom": 60, "left": 70}
-
-
-def _svg_wrap(content: str, width: int = 0, height: int = 0, title: str = "") -> str:
-    w = width or SVG_WIDTH
-    h = height or SVG_HEIGHT
-    title_el = f"<title>{_esc(title)}</title>" if title else ""
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
-        f'viewBox="0 0 {w} {h}">\n{title_el}\n'
-        f'<rect width="{w}" height="{h}" fill="#1a1a2e"/>\n{content}\n</svg>'
-    )
-
-
-def _plot_area() -> dict[str, float]:
-    m = MARGIN
-    return {
-        "x": m["left"],
-        "y": m["top"],
-        "w": SVG_WIDTH - m["left"] - m["right"],
-        "h": SVG_HEIGHT - m["top"] - m["bottom"],
-    }
-
-
 def render_waterfall(categories: list[str], values: list[float], title: str = "Bridge Analysis") -> str:
     if not categories:
-        return _svg_wrap('<text x="400" y="250" fill="#888" text-anchor="middle">No data</text>', title=title)
+        return _empty_svg(title)
+
+    n = len(categories)
+    if n > MAX_CELLS:
+        logger.warning("waterfall cell budget exceeded: %d > %d", n, MAX_CELLS)
+        raise FinanceError(message="chart cell budget exceeded", detail=f"waterfall {n} bars > {MAX_CELLS}")
+    if len(values) != n:
+        raise FinanceError(
+            message="chart input dimension mismatch", detail=f"values length {len(values)} != categories length {n}"
+        )
 
     pa = _plot_area()
-    n = len(categories)
     bar_w = pa["w"] / n * 0.7
     gap = pa["w"] / n
 

@@ -5,10 +5,9 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from ...ai_client import MLXClient
 from ...config import MAX_LIST_LENGTH, MAX_SIMULATIONS
 from ...exceptions import ModelError
 from ...modeling.advanced import AdvancedModelingEngine, DDMModel, MergerModel
@@ -16,6 +15,7 @@ from ...modeling.engine import DCFModel, FinancialModelingEngine, InteractiveDCF
 from ...modeling.portfolio import BlackLittermanOptimizer, PortfolioOptimizer, YieldCurve
 from ...modeling.scenarios import ScenarioManager
 from ...modeling.valuation import APVModel, EVAModel, RIModel
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -154,14 +154,10 @@ class ScenarioRequest(BaseModel):
     custom_scenarios: dict[str, dict[str, float]] | None = None
 
 
-def _get_mlx() -> MLXClient:
-    return MLXClient()
-
-
 @router.post("/dcf", summary="AI辅助构建DCF模型")
-async def build_dcf(req: DCFBuildRequest):
+async def build_dcf(req: DCFBuildRequest, mlx=Depends(get_mlx_client)):
     try:
-        engine = FinancialModelingEngine(_get_mlx())
+        engine = FinancialModelingEngine(mlx)
         model = await engine.build_dcf(req.company, req.revenue, req.assumptions)
         return asdict(model)
     except ModelError:
@@ -195,9 +191,9 @@ async def calculate_dcf(req: DCFCalculateRequest):
 
 
 @router.post("/comps", summary="AI辅助可比公司分析")
-async def build_comps(req: CompsBuildRequest):
+async def build_comps(req: CompsBuildRequest, mlx=Depends(get_mlx_client)):
     try:
-        engine = FinancialModelingEngine(_get_mlx())
+        engine = FinancialModelingEngine(mlx)
         comps = await engine.build_comps(req.company, req.industry, req.peers)
         return asdict(comps)
     except ModelError:
@@ -248,7 +244,7 @@ async def monte_carlo(req: MonteCarloRequest):
         )
         model.calculate()
         engine = FinancialModelingEngine()
-        result = await asyncio.to_thread(_run_monte_carlo_blocking, engine, model, req.simulations)
+        result = await asyncio.to_thread(_run_monte_carlo_sync, engine, model, req.simulations)
         return result
     except ModelError:
         raise
@@ -257,20 +253,55 @@ async def monte_carlo(req: MonteCarloRequest):
         raise ModelError(message="monte_carlo failed", detail=str(e), model_type="monte_carlo")
 
 
-def _run_monte_carlo_blocking(engine: FinancialModelingEngine, model: DCFModel, simulations: int):
-    import asyncio as _asyncio
+def _run_monte_carlo_sync(engine: FinancialModelingEngine, model: DCFModel, simulations: int) -> dict[str, Any]:
+    import random
 
-    loop = _asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(engine.monte_carlo(model, simulations))
-    finally:
-        loop.close()
+    rng = random.Random()
+    values: list[float] = []
+    for _ in range(simulations):
+        wacc = model.wacc * (1 + rng.gauss(0, 0.1))
+        if wacc <= 0.01:
+            wacc = 0.01
+        growth = model.terminal_growth * (1 + rng.gauss(0, 0.2))
+        if growth >= wacc:
+            growth = wacc - 0.01
+        revenue_mult = [1 + rng.gauss(0, 0.05) for _ in model.revenue]
+        m = DCFModel(
+            company=model.company,
+            forecast_years=model.forecast_years,
+            revenue=[r * mv for r, mv in zip(model.revenue, revenue_mult)],
+            ebit_margin=model.ebit_margin,
+            tax_rate=model.tax_rate,
+            wacc=wacc,
+            terminal_growth=growth,
+            net_debt=model.net_debt,
+            shares_outstanding=model.shares_outstanding,
+        )
+        result = m.calculate()
+        if "error" in result:
+            continue
+        values.append(m.equity_value)
+    if not values:
+        logger.error("monte_carlo: no valid simulations produced")
+        return {"error": "no valid simulations", "simulations": simulations}
+    values.sort()
+    return {
+        "mean": round(sum(values) / len(values), 2),
+        "median": round(values[len(values) // 2], 2),
+        "p5": round(values[int(len(values) * 0.05)], 2),
+        "p25": round(values[int(len(values) * 0.25)], 2),
+        "p75": round(values[int(len(values) * 0.75)], 2),
+        "p95": round(values[int(len(values) * 0.95)], 2),
+        "min": round(values[0], 2),
+        "max": round(values[-1], 2),
+        "simulations": len(values),
+    }
 
 
 @router.post("/lbo", summary="AI辅助LBO模型")
-async def build_lbo(req: LBOBuildRequest):
+async def build_lbo(req: LBOBuildRequest, mlx=Depends(get_mlx_client)):
     try:
-        engine = AdvancedModelingEngine(_get_mlx())
+        engine = AdvancedModelingEngine(mlx)
         model = await engine.build_lbo(req.company, req.ebitda, req.assumptions)
         return asdict(model)
     except ModelError:

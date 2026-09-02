@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import hmac
 import json
 import logging
 import time
@@ -12,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import JSONResponse
 
-from ..config import get_api_key
+from ..config import get_api_key, verify_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +19,20 @@ router = APIRouter()
 
 
 class EventBus:
+    MAX_SUBSCRIBERS_PER_CHANNEL = 50
+    MAX_QUEUE_SIZE = 256
+
     def __init__(self):
         self._subscribers: dict[str, list[asyncio.Queue]] = defaultdict(list)
 
-    def subscribe(self, channel: str) -> asyncio.Queue:
-        q: asyncio.Queue = asyncio.Queue()
-        self._subscribers[channel].append(q)
-        logger.debug("SSE subscriber added to channel: %s", channel)
+    def subscribe(self, channel: str) -> asyncio.Queue | None:
+        subs = self._subscribers[channel]
+        if len(subs) >= self.MAX_SUBSCRIBERS_PER_CHANNEL:
+            logger.warning("SSE channel %s at subscriber cap %d, rejecting", channel, self.MAX_SUBSCRIBERS_PER_CHANNEL)
+            return None
+        q: asyncio.Queue = asyncio.Queue(maxsize=self.MAX_QUEUE_SIZE)
+        subs.append(q)
+        logger.debug("SSE subscriber added to channel: %s (total=%d)", channel, len(subs))
         return q
 
     def unsubscribe(self, channel: str, queue: asyncio.Queue):
@@ -36,9 +42,11 @@ class EventBus:
 
     async def publish(self, channel: str, data: dict[str, Any]):
         event_str = json.dumps(data, ensure_ascii=False, default=str)
-        for q in self._subscribers.get(channel, []):
+        for q in list(self._subscribers.get(channel, [])):
             try:
-                await q.put(event_str)
+                q.put_nowait(event_str)
+            except asyncio.QueueFull:
+                logger.warning("SSE queue full for channel %s, dropping event", channel)
             except Exception as e:
                 logger.warning("SSE publish failed: %s", e)
 
@@ -70,6 +78,8 @@ async def insights_stream(session_id: str = Query(default="default")):
 
     channel = f"insights:{session_id}"
     queue = event_bus.subscribe(channel)
+    if queue is None:
+        return JSONResponse(status_code=429, content={"detail": "subscriber cap reached"})
 
     async def generate():
         try:
@@ -96,6 +106,8 @@ async def alerts_stream(session_id: str = Query(default="default")):
 
     channel = f"alerts:{session_id}"
     queue = event_bus.subscribe(channel)
+    if queue is None:
+        return JSONResponse(status_code=429, content={"detail": "subscriber cap reached"})
 
     async def generate():
         try:
@@ -130,16 +142,15 @@ async def publish_event(
             channel,
             request.client.host if request.client else "unknown",
         )
-    else:
-        if not hmac.compare_digest(x_api_key, configured_key):
-            logger.warning(
-                "SSE /events/publish rejected: invalid API key (channel=%s, client=%s)",
-                channel,
-                request.client.host if request.client else "unknown",
-            )
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Invalid API key"},
-            )
+    elif not verify_api_key(x_api_key):
+        logger.warning(
+            "SSE /events/publish rejected: invalid API key (channel=%s, client=%s)",
+            channel,
+            request.client.host if request.client else "unknown",
+        )
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Invalid API key"},
+        )
     await event_bus.publish(channel, data)
     return {"status": "published", "channel": channel}

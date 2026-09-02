@@ -4,15 +4,15 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from ...ai_client import MLXClient
 from ...config import MAX_LIST_LENGTH
 from ...exceptions import DataError
 from ...statements.analyzer import FinancialStatement, StatementAnalyzer
 from ...statements.normalizer import StatementNormalizer
 from ...statements.screener import FinancialScreener, ScreenFilter
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +58,10 @@ class TrendRequest(BaseModel):
     statements: list[MetricsRequest] = Field(max_length=MAX_LIST_LENGTH)
 
 
-def _get_mlx() -> MLXClient:
-    return MLXClient()
-
-
 @router.post("/analyze", summary="AI财报分析")
-async def analyze_statements(req: AnalyzeRequest):
+async def analyze_statements(req: AnalyzeRequest, mlx=Depends(get_mlx_client)):
     try:
-        analyzer = StatementAnalyzer(_get_mlx())
+        analyzer = StatementAnalyzer(mlx)
         result = await analyzer.analyze_statements(req.company, req.data)
         return {"company": req.company, "analysis": result}
     except DataError:

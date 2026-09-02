@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from ...ai_client import MLXClient
+from ... import __version__
 from ...exceptions import FinanceError
 from ...modeling.engine import DCFModel
 from ...modeling.scenarios import ScenarioManager
 from ...statements.screener import FinancialScreener
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -88,10 +90,9 @@ async def market_dashboard(preset: str = "quality", limit: int = 5):
 
 
 @router.get("/status", summary="服务状态概览")
-async def service_status():
+async def service_status(client=Depends(get_mlx_client)):
     try:
-        client = MLXClient()
-        health = await client.health_check()
+        health = await asyncio.wait_for(client.health_check(), timeout=5.0)
         mlx_status = "connected" if health.get("status") == "ok" else "error"
         models = health.get("models", [])
         if isinstance(models, list) and models and isinstance(models[0], dict):
@@ -107,7 +108,7 @@ async def service_status():
 
     return {
         "service": "fusion-finance",
-        "version": "0.5.4",
+        "version": __version__,
         "mlx": {"status": mlx_status, "models": model_names},
         "modules": [
             "modeling",
