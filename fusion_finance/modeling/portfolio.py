@@ -7,7 +7,23 @@ import math
 import random
 from dataclasses import dataclass, field
 
+import numpy as np
+
+from ..exceptions import ModelError
+
 logger = logging.getLogger(__name__)
+
+
+def _validate_psd(corr: list[list[float]], label: str = "correlation") -> None:
+    arr = np.array(corr, dtype=float)
+    if arr.ndim != 2 or arr.shape[0] != arr.shape[1]:
+        raise ModelError(f"{label} matrix must be square", model_type="portfolio")
+    if not np.allclose(arr, arr.T, atol=1e-8):
+        raise ModelError(f"{label} matrix must be symmetric", model_type="portfolio")
+    eigvals = np.linalg.eigvals(arr)
+    if float(np.min(eigvals)) < -1e-8:
+        logger.error("%s matrix not PSD: min eigenvalue=%.6e", label, float(np.min(eigvals)))
+        raise ModelError(f"{label} matrix must be PSD", model_type="portfolio")
 
 
 @dataclass
@@ -27,6 +43,12 @@ class PortfolioOptimizer:
         n = len(returns)
         if n < 2:
             return []
+        _validate_psd(corr, label="correlation")
+        logger.info(
+            "efficient_frontier: random sampling (num=%d), not a QP optimizer — "
+            "may not find the true Markowitz optimum",
+            num,
+        )
         portfolios = []
         for _ in range(num):
             w = [random.random() for _ in range(n)]
@@ -119,8 +141,14 @@ class TechnicalIndicators:
             diff = prices[i] - prices[i - 1]
             avg_gain = (avg_gain * (period - 1) + max(diff, 0)) / period
             avg_loss = (avg_loss * (period - 1) + max(-diff, 0)) / period
-            rs = avg_gain / avg_loss if avg_loss > 0 else 100
-            results.append(round(100 - 100 / (1 + rs), 2))
+            if avg_loss == 0 and avg_gain == 0:
+                rsi = 50.0
+            elif avg_loss == 0:
+                rsi = 100.0
+            else:
+                rs = avg_gain / avg_loss
+                rsi = 100 - 100 / (1 + rs)
+            results.append(round(rsi, 2))
         return results
 
     @staticmethod
@@ -135,10 +163,10 @@ class TechnicalIndicators:
         return [
             {
                 "macd": round(macd_line[i], 4),
-                "signal": round(signal[i], 4) if i < len(signal) else 0,
-                "histogram": round(macd_line[i] - signal[i], 4) if i < len(signal) else 0,
+                "signal": round(signal[i], 4),
+                "histogram": round(macd_line[i] - signal[i], 4),
             }
-            for i in range(len(macd_line))
+            for i in range(len(signal))
         ]
 
 
@@ -171,7 +199,7 @@ class BlackLittermanOptimizer:
             ]
             for k in range(len(p))
         ]
-        cov_inv = BlackLittermanOptimizer._invert_matrix([[cov_matrix[i][j] / tau for j in range(n)] for i in range(n)])
+        cov_inv = BlackLittermanOptimizer._invert_matrix([[cov_matrix[i][j] * tau for j in range(n)] for i in range(n)])
         if not cov_inv:
             logger.warning("BL: covariance matrix not invertible, falling back to equilibrium")
             return [round(r, 6) for r in pi]
@@ -204,6 +232,11 @@ class BlackLittermanOptimizer:
         n = len(posterior_returns)
         if n < 2:
             return {"weights": [], "expected_return": 0.0, "volatility": 0.0, "sharpe": 0.0}
+        _validate_psd(cov_matrix, label="covariance")
+        logger.info(
+            "BL optimize: random sampling (5000 draws), not a QP optimizer — "
+            "result is best-of-random, not the true Markowitz optimum"
+        )
         best_sharpe = -1.0
         best_w = [1.0 / n] * n
         for _ in range(5000):

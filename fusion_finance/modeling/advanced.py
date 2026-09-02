@@ -32,21 +32,39 @@ class LBOModel:
     def calculate(self) -> dict[str, float]:
         if not self.ebitda:
             return {"error": "请先输入EBITDA预测"}
+        if self.exit_year <= 0:
+            logger.error("LBO exit_year must be positive: %s", self.exit_year)
+            return {"error": "exit_year must be positive"}
         debt = self.purchase_price * self.debt_pct
         equity = self.purchase_price * self.equity_pct
+        if equity <= 0:
+            logger.error("LBO equity contribution must be positive: %s", equity)
+            return {"error": "equity contribution must be positive"}
         exit_ev = self.ebitda[-1] * self.exit_multiple
-        debt_repayment = debt * 0.2 * self.exit_year
-        exit_equity = exit_ev - (debt - debt_repayment)
-        self.moic = exit_equity / equity if equity else 0
-        self.irr = (self.moic ** (1 / self.exit_year) - 1) * 100 if self.exit_year > 0 else 0
+        annual_repayment = debt / self.exit_year
+        remaining_debt = debt
+        total_interest = 0.0
+        for _ in range(self.exit_year):
+            interest = remaining_debt * self.interest_rate
+            total_interest += interest
+            repayment = min(annual_repayment, remaining_debt)
+            remaining_debt -= repayment
+        exit_equity = exit_ev - remaining_debt - total_interest
+        self.moic = exit_equity / equity
+        if self.moic <= 0:
+            logger.warning("LBO non-positive MOIC=%.4f, IRR not meaningful", self.moic)
+            self.irr = float("-inf")
+        else:
+            self.irr = (self.moic ** (1 / self.exit_year) - 1) * 100
         return {
             "purchase_price": self.purchase_price,
             "debt": round(debt, 2),
             "equity": round(equity, 2),
             "exit_ev": round(exit_ev, 2),
+            "total_interest": round(total_interest, 2),
             "exit_equity": round(exit_equity, 2),
             "moic": round(self.moic, 2),
-            "irr": round(self.irr, 1),
+            "irr": round(self.irr, 1) if self.irr != float("-inf") else float("-inf"),
         }
 
 
@@ -77,21 +95,46 @@ class MergerModel:
     acquirer_price: float = 0.0
     target_price: float = 0.0
     premium: float = 0.3
+    acquirer_shares: float = 0.0
+    target_shares: float = 0.0
+    acquirer_net_income: float = 0.0
+    target_net_income: float = 0.0
+    cash_consideration_pct: float = 0.0
     acc_eps: float = 0.0
     diluted_eps: float = 0.0
     accretion: float = 0.0
 
     def calculate(self) -> dict[str, float]:
         offer_price = self.target_price * (1 + self.premium)
-        if self.acquirer_price and offer_price:
-            self.acc_eps = self.acquirer_price * 0.01
-            self.diluted_eps = offer_price * 0.008
-            self.accretion = (self.acc_eps - self.diluted_eps) / self.diluted_eps * 100
+        if self.acquirer_shares <= 0 or self.target_shares <= 0:
+            logger.error(
+                "MergerModel requires shares_outstanding for both parties: acquirer=%s target=%s",
+                self.acquirer_shares,
+                self.target_shares,
+            )
+            return {
+                "error": "merger model requires shares_outstanding and net_income for both parties",
+                "offer_price": round(offer_price, 2),
+                "premium": self.premium * 100,
+            }
+        standalone_eps = self.acquirer_net_income / self.acquirer_shares
+        deal_value = offer_price * self.target_shares
+        new_shares_issued = (
+            deal_value * (1 - self.cash_consideration_pct) / self.acquirer_price if self.acquirer_price > 0 else 0
+        )
+        pro_forma_shares = self.acquirer_shares + new_shares_issued
+        pro_forma_net_income = self.acquirer_net_income + self.target_net_income
+        self.acc_eps = standalone_eps
+        self.diluted_eps = pro_forma_net_income / pro_forma_shares if pro_forma_shares > 0 else 0.0
+        if self.acc_eps > 0:
+            self.accretion = (self.diluted_eps - self.acc_eps) / self.acc_eps * 100
+        else:
+            self.accretion = 0.0
         return {
             "offer_price": round(offer_price, 2),
             "premium": self.premium * 100,
-            "acc_eps": round(self.acc_eps, 4),
-            "diluted_eps": round(self.diluted_eps, 4),
+            "standalone_eps": round(standalone_eps, 4),
+            "pro_forma_eps": round(self.diluted_eps, 4),
             "accretion": round(self.accretion, 1),
         }
 

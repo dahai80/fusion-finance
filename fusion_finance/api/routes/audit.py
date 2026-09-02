@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from ...config import get_api_key
 from ...utils.audit import AuditTrail
 
 logger = logging.getLogger(__name__)
@@ -33,8 +34,21 @@ class AuditQueryRequest(BaseModel):
     offset: int = 0
 
 
+def _require_auth(request: Request) -> None:
+    api_key = get_api_key()
+    if not api_key:
+        return
+    provided = (
+        request.headers.get("x-api-key", "") or request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    )
+    if not provided or provided != api_key:
+        logger.warning("audit route rejected unauthenticated request")
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
 @router.post("/record", summary="记录审计日志")
-async def record_audit(req: AuditRecordRequest):
+async def record_audit(req: AuditRecordRequest, request: Request):
+    _require_auth(request)
     try:
         entry = _audit.record(
             user=req.user,
@@ -47,11 +61,12 @@ async def record_audit(req: AuditRecordRequest):
         return {"timestamp": entry.timestamp, "status": "ok"}
     except Exception as e:
         logger.error("record_audit failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error")
 
 
 @router.post("/query", summary="查询审计日志")
-async def query_audit(req: AuditQueryRequest):
+async def query_audit(req: AuditQueryRequest, request: Request):
+    _require_auth(request)
     try:
         entries = _audit.query(
             user=req.user,
@@ -80,22 +95,24 @@ async def query_audit(req: AuditQueryRequest):
         }
     except Exception as e:
         logger.error("query_audit failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error")
 
 
 @router.get("/stats", summary="审计统计")
-async def audit_stats():
+async def audit_stats(request: Request):
+    _require_auth(request)
     try:
         return _audit.get_stats()
     except Exception as e:
         logger.error("audit_stats failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error")
 
 
 @router.get("/file-stats", summary="审计文件统计(全量)")
-async def audit_file_stats():
+async def audit_file_stats(request: Request):
+    _require_auth(request)
     try:
         return _audit.get_stats_from_file()
     except Exception as e:
         logger.error("audit_file_stats failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error")

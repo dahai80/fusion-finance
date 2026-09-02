@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import logging
+import unicodedata
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+logger.warning(
+    "SANCTIONS_LIST is a stale hardcoded sample, NOT a real OFAC/EU/UN/HMT feed. "
+    "Do not rely on this for production compliance screening."
+)
 
 SANCTIONS_LIST = [
     {"name": "North Korea Trade Corp", "country": "KP", "type": "entity", "program": "DPRK"},
@@ -18,6 +24,8 @@ SANCTIONS_LIST = [
     {"name": "Al-Qaida", "country": "", "type": "terrorist", "program": "TERRORISM"},
 ]
 
+_MIN_THRESHOLD = 0.3
+
 
 @dataclass
 class SanctionsMatch:
@@ -28,27 +36,48 @@ class SanctionsMatch:
     score: float = 0.0
 
 
+def _normalize(text: str) -> str:
+    if not text:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", text)
+    collapsed = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return collapsed.casefold().strip()
+
+
 class SanctionsEngine:
     def __init__(self, sanctions_list: list[dict] | None = None):
         self.sanctions = sanctions_list or SANCTIONS_LIST
-        logger.info("SanctionsEngine initialized with %d entries", len(self.sanctions))
+        logger.warning(
+            "SanctionsEngine initialized with %d entries from a stale sample list, not real OFAC data.",
+            len(self.sanctions),
+        )
 
     def screen(self, entity: str, threshold: float = 0.6) -> list[SanctionsMatch]:
+        if threshold < _MIN_THRESHOLD:
+            logger.warning(
+                "Sanctions screen threshold %.2f below floor %.2f, clamping to floor.",
+                threshold,
+                _MIN_THRESHOLD,
+            )
+            threshold = _MIN_THRESHOLD
+        logger.info("Sanctions screen request: entity='%s', threshold=%.2f", entity, threshold)
         if not entity or not entity.strip():
             return []
-        entity_lower = entity.strip().lower()
-        matches = []
+        entity_norm = _normalize(entity)
+        matches: list[SanctionsMatch] = []
         for entry in self.sanctions:
-            name_lower = entry["name"].lower()
-            exact = entity_lower == name_lower
-            contains = entity_lower in name_lower or name_lower in entity_lower
-            levenshtein_score = self._levenshtein_ratio(entity_lower, name_lower)
-            keyword_score = self._keyword_match(entity_lower, name_lower)
+            name_norm = _normalize(entry["name"])
+            exact = entity_norm == name_norm
+            contains = entity_norm in name_norm or name_norm in entity_norm
+            levenshtein_score = self._levenshtein_ratio(entity_norm, name_norm)
+            keyword_score = self._keyword_match(entity_norm, name_norm)
+            alias_score = self._alias_match(entity_norm, name_norm)
             score = max(
                 1.0 if exact else 0.0,
                 0.85 if contains else 0.0,
                 levenshtein_score,
                 keyword_score,
+                alias_score,
             )
             match_type = (
                 "exact"
@@ -59,6 +88,8 @@ class SanctionsEngine:
                 if levenshtein_score >= threshold
                 else "keyword"
                 if keyword_score >= threshold
+                else "alias"
+                if alias_score >= threshold
                 else ""
             )
             if score >= threshold:
@@ -72,7 +103,12 @@ class SanctionsEngine:
                     )
                 )
         matches.sort(key=lambda m: m.score, reverse=True)
-        logger.info("Sanctions screen: entity='%s', matches=%d", entity, len(matches))
+        logger.info(
+            "Sanctions screen result: entity='%s', matches=%d, top_score=%s",
+            entity,
+            len(matches),
+            matches[0].score if matches else "n/a",
+        )
         return matches
 
     def screen_batch(self, entities: list[str], threshold: float = 0.6) -> dict[str, list[SanctionsMatch]]:
@@ -111,3 +147,17 @@ class SanctionsEngine:
             return 0.0
         overlap = len(q_words & t_words)
         return overlap / max(len(q_words), len(t_words))
+
+    @staticmethod
+    def _alias_match(query: str, target: str) -> float:
+        q_tokens = [t for t in query.split() if t]
+        t_tokens = [t for t in target.split() if t]
+        if not q_tokens or not t_tokens:
+            return 0.0
+        matched = 0
+        for qt in q_tokens:
+            for tt in t_tokens:
+                if qt == tt or qt in tt or tt in qt:
+                    matched += 1
+                    break
+        return matched / max(len(q_tokens), len(t_tokens))

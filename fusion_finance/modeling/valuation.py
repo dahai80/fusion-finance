@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -26,6 +29,17 @@ class APVModel:
         pv_fcf = sum(
             self.unlevered_fcf[i] / (1 + self.unlevered_cost) ** (i + 1) for i in range(len(self.unlevered_fcf))
         )
+        if self.unlevered_cost <= self.terminal_growth:
+            logger.error(
+                "APV terminal value invalid: unlevered_cost=%s must exceed terminal_growth=%s",
+                self.unlevered_cost,
+                self.terminal_growth,
+            )
+            return {
+                "error": "unlevered cost must exceed terminal growth",
+                "unlevered_cost": self.unlevered_cost,
+                "terminal_growth": self.terminal_growth,
+            }
         tv = self.unlevered_fcf[-1] * (1 + self.terminal_growth) / (self.unlevered_cost - self.terminal_growth)
         pv_tv = tv / (1 + self.unlevered_cost) ** len(self.unlevered_fcf)
         self.tax_shield_value = self.debt * self.tax_rate
@@ -73,19 +87,23 @@ class RIModel:
     book_value: float = 0.0
     net_income: list[float] = field(default_factory=list)
     cost_of_equity: float = 0.12
+    retention_ratio: float = 0.6
     residual_income: list[float] = field(default_factory=list)
     fair_value: float = 0.0
 
     def calculate(self) -> dict[str, float]:
         if not self.net_income:
             return {"error": "请先输入净利润预测"}
+        if not 0.0 <= self.retention_ratio <= 1.0:
+            logger.error("RIModel: retention_ratio out of [0,1]: %s", self.retention_ratio)
+            return {"error": "retention_ratio must be in [0,1]"}
         self.residual_income = []
         bv = self.book_value
         for ni in self.net_income:
             normal = bv * self.cost_of_equity
             ri = ni - normal
             self.residual_income.append(round(ri, 2))
-            bv = bv + ni * 0.6
+            bv = bv + ni * self.retention_ratio
         pv_ri = sum(
             self.residual_income[i] / (1 + self.cost_of_equity) ** (i + 1) for i in range(len(self.residual_income))
         )

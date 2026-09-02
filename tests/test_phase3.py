@@ -201,6 +201,8 @@ class TestProjectExporter:
             assert "project.json" in zf.namelist()
 
     def test_import_json(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
+
         data = {
             "name": "Imported",
             "description": "test",
@@ -208,9 +210,10 @@ class TestProjectExporter:
             "current_data": {"x": 1},
             "versions": [{"version": 1, "label": "v1", "data": {"x": 1}, "timestamp": 1000}],
         }
-        inp = tmp_path / "import.json"
+        EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        inp = EXPORT_DIR / "import.json"
         inp.write_text(json.dumps(data), encoding="utf-8")
-        proj_id = self.exporter.import_json(str(inp))
+        proj_id = self.exporter.import_json(inp.name)
         assert proj_id is not None
 
     def test_import_nonexistent(self):

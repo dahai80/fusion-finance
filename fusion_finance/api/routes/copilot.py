@@ -40,7 +40,7 @@ async def chat(req: ChatRequest):
         )
     except Exception as e:
         logger.error("copilot chat failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error")
 
 
 @router.get("/history/{session_id}", summary="对话历史")
@@ -52,7 +52,7 @@ async def get_history(session_id: str):
         return {"session_id": session_id, "messages": messages}
     except Exception as e:
         logger.error("copilot history failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error")
 
 
 @router.get("/sessions", summary="列出所有会话")
@@ -64,4 +64,4 @@ async def list_sessions():
         return {"sessions": sessions, "total": len(sessions)}
     except Exception as e:
         logger.error("copilot list_sessions failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error")

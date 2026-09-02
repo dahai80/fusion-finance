@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -239,7 +240,7 @@ class FinancialScreener:
             passed = True
             for f in filters:
                 val = stock.metrics.get(f.metric)
-                if val is None:
+                if val is None or (isinstance(val, float) and math.isnan(val)):
                     passed = False
                     break
                 if f.min_val is not None and val < f.min_val:
@@ -262,9 +263,15 @@ class FinancialScreener:
         scored: list[StockEntry] = []
         for stock in targets:
             total = 0.0
+            used_weight = 0.0
+            coverage = 0
             for metric, weight in w.items():
-                val = stock.metrics.get(metric, 0.0)
+                val = stock.metrics.get(metric)
+                if val is None or (isinstance(val, float) and math.isnan(val)):
+                    continue
                 total += val * weight
+                used_weight += weight
+                coverage += 1
             entry = StockEntry(
                 ticker=stock.ticker,
                 name=stock.name,
@@ -273,6 +280,22 @@ class FinancialScreener:
                 metrics=dict(stock.metrics),
                 score=round(total, 2),
             )
+            entry.metrics["_coverage"] = float(coverage)
+            entry.metrics["_used_weight"] = round(used_weight, 4)
+            if coverage == 0:
+                logger.warning(
+                    "score: zero coverage for %s (%s), score=0 is not meaningful",
+                    stock.ticker,
+                    stock.name,
+                )
+            elif coverage < len(w):
+                logger.info(
+                    "score: low coverage %d/%d for %s (%s)",
+                    coverage,
+                    len(w),
+                    stock.ticker,
+                    stock.name,
+                )
             scored.append(entry)
 
         scored.sort(key=lambda s: s.score, reverse=True)

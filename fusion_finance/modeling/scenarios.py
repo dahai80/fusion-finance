@@ -44,11 +44,19 @@ class ScenarioManager:
     def _build_scenario(self, name: str, adjustments: dict[str, float]) -> Scenario:
         scenario_model = copy.deepcopy(self.base_model)
         if "growth_adj" in adjustments:
-            scenario_model.terminal_growth = max(0, scenario_model.terminal_growth + adjustments["growth_adj"])
+            scenario_model.terminal_growth = scenario_model.terminal_growth + adjustments["growth_adj"]
         if "margin_adj" in adjustments and scenario_model.ebit_margin:
             scenario_model.ebit_margin = [m + adjustments["margin_adj"] for m in scenario_model.ebit_margin]
         if "wacc_adj" in adjustments:
             scenario_model.wacc = max(0.01, scenario_model.wacc + adjustments["wacc_adj"])
+        if scenario_model.wacc <= scenario_model.terminal_growth:
+            logger.warning(
+                "scenario %s: growth=%s >= wacc=%s, capping growth to wacc-0.01",
+                name,
+                scenario_model.terminal_growth,
+                scenario_model.wacc,
+            )
+            scenario_model.terminal_growth = scenario_model.wacc - 0.01
         result = scenario_model.calculate()
         labels = {"bear": "悲观", "base": "基准", "bull": "乐观"}
         return Scenario(

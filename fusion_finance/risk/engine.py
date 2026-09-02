@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..ai_client import MLXClient
+from ..exceptions import RiskError
 from ..utils.parse_json import parse_json
 
 logger = logging.getLogger(__name__)
@@ -57,9 +58,21 @@ class RiskComplianceEngine:
                     findings=data.get("findings", []),
                     recommendations=data.get("recommendations", []),
                 )
+            logger.error("KYC screening unavailable for entity='%s': LLM returned no parseable result", entity)
+            raise RiskError(
+                message="screening unavailable",
+                detail=f"KYC screening failed for entity='{entity}': LLM returned empty or unparseable response",
+                risk_type="screening",
+            )
+        except RiskError:
+            raise
         except Exception as e:
-            logger.error(f"KYC失败: {e}")
-        return KYCCheck(entity=entity)
+            logger.error("KYC screening failed for entity='%s': %s", entity, e)
+            raise RiskError(
+                message="screening unavailable",
+                detail=str(e),
+                risk_type="screening",
+            )
 
     async def credit_assessment(self, entity: str, financials: dict[str, float]) -> CreditAssessment:
         prompt = f"""评估{entity}的信用状况。
@@ -85,14 +98,31 @@ class RiskComplianceEngine:
                     strengths=data.get("strengths", []),
                     concerns=data.get("concerns", []),
                 )
+            logger.error("Credit assessment unavailable for entity='%s': LLM returned no parseable result", entity)
+            raise RiskError(
+                message="screening unavailable",
+                detail=f"Credit assessment failed for entity='{entity}': LLM returned empty or unparseable response",
+                risk_type="screening",
+            )
+        except RiskError:
+            raise
         except Exception as e:
-            logger.error(f"信用评估失败: {e}")
-        return CreditAssessment(entity=entity)
+            logger.error("Credit assessment failed for entity='%s': %s", entity, e)
+            raise RiskError(
+                message="screening unavailable",
+                detail=str(e),
+                risk_type="screening",
+            )
 
     async def compliance_check(self, contract: str, regulations: str = "中国公司法") -> dict[str, Any]:
+        if len(contract) > 5000:
+            logger.warning(
+                "Compliance check contract length=%d exceeds 5000 chars; processing full text without truncation.",
+                len(contract),
+            )
         prompt = f"""审查以下合同是否符合{regulations}。
 
-合同内容: {contract[:2000]}
+合同内容: {contract}
 
 返回JSON: {{"compliant": true/false, "issues": [{{"clause": "条款", "risk": "high/medium/low", "description": "问题描述", "suggestion": "修改建议"}}], "overall_risk": "low/medium/high", "summary": "审查总结"}}"""
         try:
@@ -103,6 +133,21 @@ class RiskComplianceEngine:
                 ],
                 temperature=0.1,
             )
-            return parse_json(response) or {"compliant": True}
+            data = parse_json(response)
+            if data:
+                return data
+            logger.error("Compliance check unavailable: LLM returned no parseable result")
+            raise RiskError(
+                message="screening unavailable",
+                detail="Compliance check failed: LLM returned empty or unparseable response",
+                risk_type="screening",
+            )
+        except RiskError:
+            raise
         except Exception as exc:
-            return {"error": str(exc)}
+            logger.error("Compliance check failed: %s", exc)
+            raise RiskError(
+                message="screening unavailable",
+                detail=str(exc),
+                risk_type="screening",
+            )

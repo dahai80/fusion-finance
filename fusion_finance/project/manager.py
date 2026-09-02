@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -9,8 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from ..config import PROJECT_DIR
+from ..utils.safe_path import safe_join
 
 logger = logging.getLogger(__name__)
+
+_PROJECT_ID_RE = re.compile(r"^proj_[0-9a-f]{8}$")
 
 
 @dataclass
@@ -31,14 +35,21 @@ class ProjectManager:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._cache: dict[str, Project] = {}
 
-    def _project_path(self, project_id: str) -> Path:
-        return self.data_dir / f"{project_id}.json"
+    def _project_path(self, project_id: str) -> Path | None:
+        if not project_id or not _PROJECT_ID_RE.match(project_id):
+            logger.warning("invalid project_id rejected: %r", project_id)
+            return None
+        path = safe_join(self.data_dir, project_id, suffix=".json")
+        if path is None:
+            logger.warning("path traversal blocked for project_id: %r", project_id)
+            return None
+        return path
 
     def _load_project(self, project_id: str) -> Project | None:
         if project_id in self._cache:
             return self._cache[project_id]
         path = self._project_path(project_id)
-        if not path.exists():
+        if path is None or not path.exists():
             return None
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
@@ -60,6 +71,9 @@ class ProjectManager:
 
     def _save_project(self, project: Project) -> None:
         path = self._project_path(project.id)
+        if path is None:
+            logger.error("cannot save project, invalid id: %s", project.id)
+            return
         data = {
             "id": project.id,
             "name": project.name,
@@ -119,7 +133,7 @@ class ProjectManager:
 
     def delete(self, project_id: str) -> bool:
         path = self._project_path(project_id)
-        if not path.exists():
+        if path is None or not path.exists():
             logger.warning("Project not found for delete: %s", project_id)
             return False
         path.unlink()
@@ -167,7 +181,7 @@ class ProjectManager:
         logger.info("Saved snapshot: project=%s, version=%d", project_id, version_num)
         return {"project_id": project_id, "version": version_num, "label": snap["label"]}
 
-    def restore(self, project_id: str, version: int = 0) -> dict | None:
+    def restore(self, project_id: str, version: int | None = None) -> dict | None:
         proj = self._load_project(project_id)
         if not proj:
             logger.warning("Project not found for restore: %s", project_id)
@@ -175,12 +189,17 @@ class ProjectManager:
         if not proj.versions:
             logger.warning("No versions to restore for project: %s", project_id)
             return None
-        target_ver = version if version > 0 else len(proj.versions)
-        target = None
-        for v in proj.versions:
-            if v["version"] == target_ver:
-                target = v
-                break
+        if version is None or version <= 0:
+            target = proj.versions[-1]
+            target_ver = target["version"]
+            logger.info("restore: version unset, using latest version %d", target_ver)
+        else:
+            target_ver = version
+            target = None
+            for v in proj.versions:
+                if v["version"] == target_ver:
+                    target = v
+                    break
         if not target:
             logger.warning("Version %d not found for project: %s", target_ver, project_id)
             return None

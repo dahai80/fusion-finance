@@ -6,8 +6,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ...exceptions import FinanceError
+from ...config import EXPORT_DIR
+from ...exceptions import DataError, FinanceError
 from ...project import ProjectExporter, ProjectManager, VersionControl
+from ...utils.safe_path import safe_join, sanitize_name
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class RestoreRequest(BaseModel):
 
 class ExportRequest(BaseModel):
     format: str = "json"
-    output_path: str = ""
+    name: str = ""
 
 
 @router.get("/list", summary="列出所有项目")
@@ -149,10 +151,30 @@ async def version_history(project_id: str):
 
 @router.post("/{project_id}/export", summary="导出项目")
 async def export_project(project_id: str, req: ExportRequest):
-    if req.format == "zip":
-        path = _exporter.export_zip(project_id, req.output_path)
-    else:
-        path = _exporter.export_json(project_id, req.output_path)
-    if not path:
-        raise HTTPException(status_code=404, detail="项目不存在或导出失败")
-    return {"project_id": project_id, "format": req.format, "path": path}
+    fmt = req.format.lower()
+    ext = "zip" if fmt == "zip" else "json"
+    safe_name = sanitize_name(req.name, fallback=f"{project_id}.{ext}")
+    if not safe_name.endswith(f".{ext}"):
+        safe_name = f"{safe_name}.{ext}"
+    target = safe_join(EXPORT_DIR, safe_name)
+    if target is None:
+        logger.warning("export_project rejected unsafe name: %s", req.name)
+        raise DataError(message="unsafe export name", detail="invalid name", field="name")
+    try:
+        EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        if fmt == "zip":
+            path = _exporter.export_zip(project_id, str(target))
+        else:
+            path = _exporter.export_json(project_id, str(target))
+        if not path:
+            raise HTTPException(status_code=404, detail="项目不存在或导出失败")
+        return {"project_id": project_id, "format": fmt, "path": path}
+    except HTTPException:
+        raise
+    except DataError:
+        raise
+    except FinanceError:
+        raise
+    except Exception as e:
+        logger.error("export_project failed: %s", e)
+        raise FinanceError(message="export_project failed", detail=str(e))

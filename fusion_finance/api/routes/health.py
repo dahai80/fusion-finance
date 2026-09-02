@@ -29,4 +29,4 @@ async def readiness_check():
         return {"status": "degraded", "mlx": "error", "detail": result.get("detail", "unknown")}
     except Exception as e:
         logger.error("Readiness check failed: %s", e)
-        return {"status": "degraded", "mlx": "unreachable", "detail": str(e)}
+        return {"status": "degraded", "mlx": "unreachable", "detail": "unreachable"}

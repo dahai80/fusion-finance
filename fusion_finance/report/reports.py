@@ -7,7 +7,10 @@ import logging
 from datetime import datetime
 
 from ..ai_client import MLXClient
+from ..config import EXPORT_DIR
+from ..exceptions import ReportError
 from ..modeling.engine import CompsAnalysis, DCFModel
+from ..utils.safe_path import safe_join, sanitize_name
 
 logger = logging.getLogger(__name__)
 
@@ -90,13 +93,19 @@ class ReportGenerator:
         except Exception as e:
             return f"# {company} 投研报告\n\n*报告生成失败: {e}*"
 
-    def save_report(self, content: str, output_dir: str, filename: str = "") -> str:
-        from pathlib import Path
-
-        path = Path(output_dir).expanduser()
-        path.mkdir(parents=True, exist_ok=True)
+    def save_report(self, content: str, output_dir: str = "", filename: str = "") -> str:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         if not filename:
-            filename = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        filepath = path / filename
+            filename = f"report_{ts}.md"
+        name = sanitize_name(filename, fallback=f"report_{ts}.md")
+        filepath = safe_join(EXPORT_DIR, name)
+        if filepath is None:
+            logger.error("save_report path traversal blocked: name=%s", name)
+            raise ReportError(report_type="save", message="invalid report path")
+        try:
+            EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.error("failed to create export dir %s: %s", EXPORT_DIR, e)
+            raise ReportError(report_type="save", message="invalid report path") from e
         filepath.write_text(content, encoding="utf-8")
         return str(filepath)

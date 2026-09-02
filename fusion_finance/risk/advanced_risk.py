@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
+
+_MIN_SAMPLES = 30
+_MAX_DEPTH = 20
 
 
 @dataclass
@@ -14,9 +20,11 @@ class VaRResult:
     var_95: float = 0.0
     var_99: float = 0.0
     cvar_95: float = 0.0
+    cvar_99: float = 0.0
     expected_shortfall: float = 0.0
     simulations: int = 0
     portfolio_value: float = 0.0
+    confidence: float = 0.95
 
 
 @dataclass
@@ -36,21 +44,62 @@ class RiskModelingEngine:
     @staticmethod
     def calculate_var(returns: list[float], portfolio_value: float = 1_000_000, confidence: float = 0.95) -> VaRResult:
         if not returns:
-            return VaRResult()
-        sorted_rets = sorted(returns)
-        n = len(sorted_rets)
-        var_95_idx = max(0, int(n * (1 - 0.95)) - 1)
-        var_99_idx = max(0, int(n * (1 - 0.99)) - 1)
-        var_95 = sorted_rets[var_95_idx]
-        var_99 = sorted_rets[var_99_idx]
-        cvar_95 = sum(sorted_rets[: var_95_idx + 1]) / (var_95_idx + 1) if var_95_idx >= 0 else 0
+            logger.warning("calculate_var called with empty returns list")
+            return VaRResult(confidence=confidence)
+        n = len(returns)
+        if n < _MIN_SAMPLES:
+            logger.warning(
+                "calculate_var sample size %d below floor %d; results are statistically unreliable",
+                n,
+                _MIN_SAMPLES,
+            )
+        try:
+            import numpy as np
+
+            losses = np.array([-r for r in returns], dtype=float)
+            var_conf = float(np.quantile(losses, confidence, method="linear"))
+            tail_conf = losses[losses >= var_conf]
+            cvar_conf = float(tail_conf.mean()) if tail_conf.size > 0 else var_conf
+            var_95 = float(np.quantile(losses, 0.95, method="linear"))
+            var_99 = float(np.quantile(losses, 0.99, method="linear"))
+            tail_95 = losses[losses >= var_95]
+            tail_99 = losses[losses >= var_99]
+            cvar_95 = float(tail_95.mean()) if tail_95.size > 0 else var_95
+            cvar_99 = float(tail_99.mean()) if tail_99.size > 0 else var_99
+        except ImportError:
+            logger.warning("numpy unavailable; falling back to sorted-list quantile calculation")
+            sorted_losses = sorted(-r for r in returns)
+            n_losses = len(sorted_losses)
+
+            def _quantile(sorted_vals: list[float], q: float) -> float:
+                if not sorted_vals:
+                    return 0.0
+                pos = q * (n_losses - 1)
+                lo = int(math.floor(pos))
+                hi = int(math.ceil(pos))
+                if lo == hi:
+                    return sorted_vals[lo]
+                frac = pos - lo
+                return sorted_vals[lo] * (1 - frac) + sorted_losses[hi] * frac
+
+            var_conf = _quantile(sorted_losses, confidence)
+            tail_conf = [v for v in sorted_losses if v >= var_conf]
+            cvar_conf = sum(tail_conf) / len(tail_conf) if tail_conf else var_conf
+            var_95 = _quantile(sorted_losses, 0.95)
+            var_99 = _quantile(sorted_losses, 0.99)
+            tail_95 = [v for v in sorted_losses if v >= var_95]
+            tail_99 = [v for v in sorted_losses if v >= var_99]
+            cvar_95 = sum(tail_95) / len(tail_95) if tail_95 else var_95
+            cvar_99 = sum(tail_99) / len(tail_99) if tail_99 else var_99
         return VaRResult(
             var_95=round(var_95 * portfolio_value, 2),
             var_99=round(var_99 * portfolio_value, 2),
             cvar_95=round(cvar_95 * portfolio_value, 2),
-            expected_shortfall=round(cvar_95 * portfolio_value, 2),
+            cvar_99=round(cvar_99 * portfolio_value, 2),
+            expected_shortfall=round(cvar_conf * portfolio_value, 2),
             simulations=n,
             portfolio_value=portfolio_value,
+            confidence=confidence,
         )
 
     @staticmethod
@@ -103,8 +152,28 @@ class RiskModelingEngine:
                         )
                     )
         if positions:
-            total = sum(float(p.get("value", p.get("market_value", 0)) or 0) for p in positions)
+            total_value = 0.0
+            position_values: list[float] = []
+            for p in positions:
+                pv = float(p.get("value", p.get("market_value", 0)) or 0)
+                position_values.append(pv)
+                total_value += pv
             for r in base:
-                if total > 0:
-                    r.impact = round(r.impact, 4)
+                scenario_pct = r.impact
+                if total_value > 0:
+                    aggregate_impact = 0.0
+                    for pv in position_values:
+                        aggregate_impact += scenario_pct * pv
+                    r.impact = round(aggregate_impact, 4)
+                else:
+                    logger.warning(
+                        "stress_test_scenarios: positions provided but total value is 0; scenario='%s' impact left as pct",
+                        r.scenario,
+                    )
+            logger.info(
+                "stress_test_scenarios applied %d positions (total_value=%.2f) to %d scenarios",
+                len(positions),
+                total_value,
+                len(base),
+            )
         return base

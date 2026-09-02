@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from fusion_finance.ai_client import MLXClient
@@ -9,6 +11,12 @@ from fusion_finance.modeling import DCFModel, FinancialModelingEngine
 from fusion_finance.report import ReportGenerator
 from fusion_finance.risk import RiskComplianceEngine
 from fusion_finance.statements import FinancialStatement, StatementAnalyzer
+
+
+def _mock_mlx(response: str) -> MLXClient:
+    mlx = MLXClient.__new__(MLXClient)
+    mlx.chat = AsyncMock(return_value=response)
+    return mlx
 
 
 class TestDCFModel:
@@ -101,7 +109,7 @@ class TestStatementAnalyzer:
         stmt = FinancialStatement(company="ABC")
         analyzer = StatementAnalyzer()
         analysis = analyzer.calculate_metrics(stmt)
-        assert analysis.gross_margin == 0
+        assert analysis.gross_margin is None
 
     def test_validate_balance_sheet_ok(self):
         stmt = FinancialStatement(company="ABC", period="2024", total_assets=1000, total_liabilities=400, equity=600)
@@ -119,21 +127,27 @@ class TestStatementAnalyzer:
 class TestRiskComplianceEngine:
     @pytest.mark.asyncio
     async def test_kyc_screening(self):
-        engine = RiskComplianceEngine()
+        mlx = _mock_mlx('{"risk_level": "low", "risk_score": 80, "findings": [], "recommendations": []}')
+        engine = RiskComplianceEngine(mlx=mlx)
         result = await engine.kyc_screening("Test Corp")
         assert result.entity == "Test Corp"
+        assert result.risk_level == "low"
 
     @pytest.mark.asyncio
     async def test_credit_assessment(self):
-        engine = RiskComplianceEngine()
+        mlx = _mock_mlx('{"credit_score": 75, "rating": "A", "max_credit_line": 5000, "strengths": [], "concerns": []}')
+        engine = RiskComplianceEngine(mlx=mlx)
         result = await engine.credit_assessment("Test Corp", {"revenue": 1000, "profit": 100})
         assert result.entity == "Test Corp"
+        assert result.rating == "A"
 
     @pytest.mark.asyncio
     async def test_compliance_check(self):
-        engine = RiskComplianceEngine()
+        mlx = _mock_mlx('{"compliant": true, "issues": [], "overall_risk": "low", "summary": "ok"}')
+        engine = RiskComplianceEngine(mlx=mlx)
         result = await engine.compliance_check("Test contract text")
         assert isinstance(result, dict)
+        assert result["compliant"] is True
 
 
 class TestReportGenerator:

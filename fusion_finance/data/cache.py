@@ -59,25 +59,39 @@ class DataCache:
 
     @staticmethod
     def make_key(*parts: Any) -> str:
-        raw = json.dumps(parts, sort_keys=True, default=str)
+        try:
+            raw = json.dumps(parts, sort_keys=True, default=str)
+        except (TypeError, ValueError) as e:
+            logger.warning("make_key unhashable parts (%s); falling back to repr", e)
+            raw = repr(type(p).__name__ for p in parts) + repr(parts)
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 _compute_cache = DataCache(max_size=128, default_ttl=1800)
 
 
-def compute_cache(ttl: int = 0):
+def compute_cache(ttl: int = 0, namespace: str = ""):
     def decorator(fn):
         def wrapper(*args, **kwargs):
-            key_parts = [fn.__name__, args, sorted(kwargs.items())]
-            cache_key = DataCache.make_key(*key_parts)
+            ns = namespace or fn.__module__ or ""
+            try:
+                key_payload = [ns, fn.__qualname__, args, sorted(kwargs.items())]
+                cache_key = DataCache.make_key(*key_payload)
+            except (TypeError, ValueError) as e:
+                logger.warning(
+                    "compute_cache: unhashable args for %s.%s (%s); skipping cache",
+                    fn.__module__,
+                    fn.__qualname__,
+                    e,
+                )
+                return fn(*args, **kwargs)
             cached = _compute_cache.get(cache_key)
             if cached is not None:
-                logger.debug("compute_cache hit: %s", fn.__name__)
+                logger.debug("compute_cache hit: %s.%s", fn.__module__, fn.__qualname__)
                 return cached
             result = fn(*args, **kwargs)
             _compute_cache.set(cache_key, result, ttl or _compute_cache._default_ttl)
-            logger.debug("compute_cache set: %s", fn.__name__)
+            logger.debug("compute_cache set: %s.%s", fn.__module__, fn.__qualname__)
             return result
 
         wrapper.__name__ = fn.__name__

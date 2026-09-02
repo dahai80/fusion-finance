@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import json
 import logging
 import time
 from collections import defaultdict
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query, Request
+from fastapi.responses import JSONResponse
+
+from ..config import get_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +68,16 @@ async def _sse_stream(queue: asyncio.Queue, keepalive_interval: int = 15):
 async def insights_stream(session_id: str = Query(default="default")):
     from starlette.responses import StreamingResponse
 
-    queue = event_bus.subscribe(f"insights:{session_id}")
+    channel = f"insights:{session_id}"
+    queue = event_bus.subscribe(channel)
 
     async def generate():
-        async for chunk in _sse_stream(queue):
-            yield chunk
+        try:
+            async for chunk in _sse_stream(queue):
+                yield chunk
+        finally:
+            event_bus.unsubscribe(channel, queue)
+            logger.debug("SSE unsubscribed from channel: %s", channel)
 
     return StreamingResponse(
         generate(),
@@ -85,11 +94,16 @@ async def insights_stream(session_id: str = Query(default="default")):
 async def alerts_stream(session_id: str = Query(default="default")):
     from starlette.responses import StreamingResponse
 
-    queue = event_bus.subscribe(f"alerts:{session_id}")
+    channel = f"alerts:{session_id}"
+    queue = event_bus.subscribe(channel)
 
     async def generate():
-        async for chunk in _sse_stream(queue):
-            yield chunk
+        try:
+            async for chunk in _sse_stream(queue):
+                yield chunk
+        finally:
+            event_bus.unsubscribe(channel, queue)
+            logger.debug("SSE unsubscribed from channel: %s", channel)
 
     return StreamingResponse(
         generate(),
@@ -103,6 +117,29 @@ async def alerts_stream(session_id: str = Query(default="default")):
 
 
 @router.post("/publish")
-async def publish_event(channel: str, data: dict[str, Any]):
+async def publish_event(
+    request: Request,
+    channel: str,
+    data: dict[str, Any],
+    x_api_key: str = Header(default=""),
+):
+    configured_key = get_api_key()
+    if not configured_key:
+        logger.warning(
+            "SSE /events/publish accepted without API key configured (channel=%s, client=%s) — local-dev mode",
+            channel,
+            request.client.host if request.client else "unknown",
+        )
+    else:
+        if not hmac.compare_digest(x_api_key, configured_key):
+            logger.warning(
+                "SSE /events/publish rejected: invalid API key (channel=%s, client=%s)",
+                channel,
+                request.client.host if request.client else "unknown",
+            )
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid API key"},
+            )
     await event_bus.publish(channel, data)
     return {"status": "published", "channel": channel}

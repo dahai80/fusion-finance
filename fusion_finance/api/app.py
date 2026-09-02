@@ -7,7 +7,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from ..config import ensure_dirs, setup_logging
+from ..ai_client import MLXClient
+from ..config import DEFAULT_PORT, ensure_dirs, get_api_key, get_cors_origins, setup_logging
 from ..exceptions import AIClientError, DataError, FinanceError, ModelError, ReportError, RiskError
 from .middleware import APIKeyMiddleware, AuditMiddleware, RateLimitMiddleware
 from .routes import audit, chart, copilot, dashboard, data, health, modeling, project, report, risk, statements, ws
@@ -20,8 +21,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     setup_logging()
     ensure_dirs()
-    logger.info("Fusion-Finance API started on port %s", app.state.port if hasattr(app.state, "port") else 11466)
+    app.state.port = getattr(app.state, "port", DEFAULT_PORT)
+    app.state.mlx_client = MLXClient()
+    logger.info("Fusion-Finance API started on port %s", app.state.port)
     yield
+    try:
+        await app.state.mlx_client.close()
+    except Exception as e:
+        logger.warning("MLXClient close failed on shutdown: %s", e)
     logger.info("Fusion-Finance API shutdown")
 
 
@@ -32,6 +39,7 @@ def create_app() -> FastAPI:
         version="0.5.4",
         lifespan=lifespan,
     )
+    app.state.port = DEFAULT_PORT
 
     @app.exception_handler(FinanceError)
     async def finance_error_handler(request: Request, exc: FinanceError):
@@ -52,18 +60,19 @@ def create_app() -> FastAPI:
         elif isinstance(exc, AIClientError):
             error_type = "ai_client_error"
             status = 503
-        return JSONResponse(status_code=status, content={"error": error_type, "detail": exc.detail})
+        detail = exc.safe_detail or exc.message or "internal error"
+        return JSONResponse(status_code=status, content={"error": error_type, "detail": detail})
 
+    app.add_middleware(APIKeyMiddleware, api_key=get_api_key())
+    app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
+    app.add_middleware(AuditMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=get_cors_origins(),
         allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "x-api-key", "x-auth-user"],
     )
-    app.add_middleware(AuditMiddleware)
-    app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
-    app.add_middleware(APIKeyMiddleware, api_key="")
 
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
     app.include_router(modeling.router, prefix="/api/v1/modeling", tags=["modeling"])

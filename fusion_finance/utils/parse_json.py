@@ -2,16 +2,51 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_MAX_PARSE_LEN = 256 * 1024
 
-def parse_json(text: str) -> Any:
+
+def _extract_balanced(text: str, open_ch: str, close_ch: str) -> str | None:
+    start = text.find(open_ch)
+    while start != -1:
+        depth = 0
+        in_str = False
+        escape = False
+        for i in range(start, len(text)):
+            ch = text[i]
+            if escape:
+                escape = False
+                continue
+            if ch == "\\":
+                escape = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch == open_ch:
+                depth += 1
+            elif ch == close_ch:
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        start = text.find(open_ch, start + 1)
+    return None
+
+
+def parse_json(text: Any) -> Any:
     if not text or not isinstance(text, str):
         return None
     text = text.strip()
+    if not text:
+        return None
+    if len(text) > _MAX_PARSE_LEN:
+        logger.warning("parse_json input too long (%d), truncating to %d", len(text), _MAX_PARSE_LEN)
+        text = text[:_MAX_PARSE_LEN]
     if "```json" in text:
         text = text.split("```json")[1].split("```")[0].strip()
     elif "```" in text:
@@ -20,16 +55,16 @@ def parse_json(text: str) -> Any:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-    brace_match = re.search(r"\{.*\}", text, re.DOTALL)
-    if brace_match:
+    obj = _extract_balanced(text, "{", "}")
+    if obj:
         try:
-            return json.loads(brace_match.group())
+            return json.loads(obj)
         except json.JSONDecodeError:
             pass
-    bracket_match = re.search(r"\[.*\]", text, re.DOTALL)
-    if bracket_match:
+    arr = _extract_balanced(text, "[", "]")
+    if arr:
         try:
-            return json.loads(bracket_match.group())
+            return json.loads(arr)
         except json.JSONDecodeError:
             pass
     logger.debug("parse_json failed for text (len=%d)", len(text))

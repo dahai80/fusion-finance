@@ -7,10 +7,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
-from ...exceptions import ReportError
+from ...config import EXPORT_DIR, MAX_LIST_LENGTH
+from ...exceptions import DataError, FinanceError, ReportError
 from ...modeling.engine import CompsAnalysis, DCFModel
 from ...report.formatter import SUPPORTED_FORMATS, ReportFormatter
 from ...report.reports import ReportGenerator
+from ...utils.safe_path import safe_join, sanitize_name
 
 logger = logging.getLogger(__name__)
 
@@ -20,22 +22,22 @@ _formatter = ReportFormatter()
 
 class ValuationReportRequest(BaseModel):
     company: str
-    revenue: list[float] = Field(default_factory=list)
-    ebit_margin: list[float] = Field(default_factory=list)
+    revenue: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    ebit_margin: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     tax_rate: float = 0.25
     wacc: float = 0.10
     terminal_growth: float = 0.03
     net_debt: float = 0.0
     shares_outstanding: float = 0.0
     include_comps: bool = False
-    peers: list[dict[str, float]] | None = None
+    peers: list[dict[str, float]] | None = Field(default=None, max_length=MAX_LIST_LENGTH)
 
 
 class PitchbookRequest(BaseModel):
     company: str
     industry: str
-    revenue: list[float] = Field(default_factory=list)
-    ebit_margin: list[float] = Field(default_factory=list)
+    revenue: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    ebit_margin: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     tax_rate: float = 0.25
     wacc: float = 0.10
     terminal_growth: float = 0.03
@@ -53,7 +55,7 @@ class ExportRequest(BaseModel):
     content: str = ""
     template_name: str = ""
     template_data: dict[str, Any] | None = None
-    output_path: str = ""
+    name: str = ""
 
 
 def _get_mlx() -> MLXClient:
@@ -87,9 +89,12 @@ async def generate_valuation_report(req: ValuationReportRequest):
         return {"company": req.company, "content": content, "format": "markdown"}
     except ReportError:
         raise
+    except FinanceError:
+        raise
     except Exception as e:
+        logger.error("generate_valuation_report failed: %s", e)
         raise ReportError(
-            message="generate_valuation_report failed", detail=str(e), risk_type="generate_valuation_report"
+            message="generate_valuation_report failed", detail=str(e), report_type="generate_valuation_report"
         )
 
 
@@ -103,8 +108,11 @@ async def generate_pitchbook(req: PitchbookRequest):
         return {"company": req.company, "content": content, "format": "markdown"}
     except ReportError:
         raise
+    except FinanceError:
+        raise
     except Exception as e:
-        raise ReportError(message="generate_pitchbook failed", detail=str(e), risk_type="generate_pitchbook")
+        logger.error("generate_pitchbook failed: %s", e)
+        raise ReportError(message="generate_pitchbook failed", detail=str(e), report_type="generate_pitchbook")
 
 
 @router.post("/research", summary="AI生成深度投研报告")
@@ -115,29 +123,49 @@ async def generate_research_report(req: ResearchReportRequest):
         return {"company": req.company, "content": content, "format": "markdown"}
     except ReportError:
         raise
+    except FinanceError:
+        raise
     except Exception as e:
+        logger.error("generate_research_report failed: %s", e)
         raise ReportError(
-            message="generate_research_report failed", detail=str(e), risk_type="generate_research_report"
+            message="generate_research_report failed", detail=str(e), report_type="generate_research_report"
         )
 
 
 @router.post("/export/{fmt}", summary="导出报告")
 async def export_report(fmt: str, req: ExportRequest):
+    fmt_lower = fmt.lower()
+    if fmt_lower not in SUPPORTED_FORMATS:
+        logger.warning("export_report rejected unsupported format: %s", fmt)
+        raise HTTPException(status_code=400, detail="unsupported format")
+    ext = fmt_lower if fmt_lower != "md" else "md"
+    safe_name = sanitize_name(req.name, fallback=f"report.{ext}")
+    if not safe_name.endswith(f".{ext}"):
+        safe_name = f"{safe_name}.{ext}"
+    target = safe_join(EXPORT_DIR, safe_name)
+    if target is None:
+        logger.warning("export_report rejected unsafe name: %s", req.name)
+        raise DataError(message="unsafe export name", detail="invalid name", field="name")
     try:
+        EXPORT_DIR.mkdir(parents=True, exist_ok=True)
         path = _formatter.export(
             content=req.content,
-            fmt=fmt,
-            output_path=req.output_path,
+            fmt=fmt_lower,
+            output_path=str(target),
             template_name=req.template_name,
             template_data=req.template_data,
         )
-        return {"format": fmt, "path": path, "status": "ok"}
+        return {"format": fmt_lower, "path": path, "status": "ok"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("export_report value error: %s", e)
+        raise HTTPException(status_code=400, detail="invalid export request")
     except ReportError:
         raise
+    except FinanceError:
+        raise
     except Exception as e:
-        raise ReportError(message="export_report failed", detail=str(e), risk_type="export_report")
+        logger.error("export_report failed: %s", e)
+        raise ReportError(message="export_report failed", detail=str(e), report_type="export_report")
 
 
 @router.get("/formats", summary="支持的导出格式")

@@ -78,8 +78,10 @@ def stmt_analyze(ctx, company, revenue, net_income, total_assets):
     analyzer = ctx.obj["statements"]
     analysis = analyzer.calculate_metrics(stmt)
     click.echo(f"\n📋 {company} 财务指标")
-    click.echo(f"   净利率: {analysis.net_margin:.1f}%")
-    click.echo(f"   ROA: {analysis.roa:.1f}%")
+    if analysis.net_margin is not None:
+        click.echo(f"   净利率: {analysis.net_margin:.1f}%")
+    if analysis.roa is not None:
+        click.echo(f"   ROA: {analysis.roa:.1f}%")
     if analysis.debt_ratio:
         click.echo(f"   资产负债率: {analysis.debt_ratio:.1f}%")
     click.echo()
