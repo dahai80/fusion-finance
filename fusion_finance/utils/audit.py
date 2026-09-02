@@ -27,7 +27,7 @@ class AuditEntry:
     user: str = ""
     action: str = ""
     module: str = ""
-    details: Any = ""
+    details: Any = None
     status: str = "success"
     duration_ms: float = 0.0
     prev_hash: str = ""

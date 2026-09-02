@@ -118,11 +118,14 @@ def report():
 
 @report.command("valuation")
 @click.argument("company")
-@click.option("--output", "-o", default="~/Desktop")
+@click.argument("revenue", nargs=-1, type=float)
+@click.option("--wacc", default=0.10, help="WACC 折现率")
+@click.option("--output", "-o", default="", help="输出目录（默认内置导出目录）")
 @click.pass_context
-def report_valuation(ctx, company, output):
+def report_valuation(ctx, company, revenue, wacc, output):
     """生成估值报告。"""
-    dcf = DCFModel(company=company, revenue=[100, 120, 140])
+    rev = list(revenue) if revenue else [100, 120, 140]
+    dcf = DCFModel(company=company, revenue=rev, wacc=wacc)
     dcf.calculate()
     gen = ctx.obj["report"]
     content = gen.generate_valuation_report(company, dcf)

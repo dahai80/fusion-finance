@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -8,7 +9,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_HOST = os.getenv("FUSION_FINANCE_HOST", "127.0.0.1")
+DEFAULT_HOST = os.getenv("FUSION_FINANCE_HOST", "0.0.0.0")
 DEFAULT_PORT = int(os.getenv("FUSION_FINANCE_PORT", "11466"))
 DEFAULT_MLX_BASE_URL = "http://localhost:11432/v1"
 DEFAULT_MODEL = "qwen3.5-9b"
@@ -51,6 +52,15 @@ def get_api_key() -> str:
     except OSError as e:
         logger.error("Failed to init API key: %s", e)
         return ""
+
+
+def verify_api_key(provided: str) -> bool:
+    configured = get_api_key()
+    if not configured:
+        return True
+    if not provided:
+        return False
+    return hmac.compare_digest(provided, configured)
 
 
 def get_cors_origins() -> list[str]:

@@ -4,13 +4,14 @@ import logging
 
 from fastapi import APIRouter, Depends
 
+from ... import __version__
 from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-VERSION = "0.5.4"
+VERSION = __version__
 
 
 @router.get("/", summary="健康检查")

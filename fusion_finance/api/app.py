@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .. import __version__
 from ..ai_client import MLXClient
 from ..config import DEFAULT_PORT, ensure_dirs, get_api_key, get_cors_origins, setup_logging
 from ..copilot import CopilotEngine
@@ -38,7 +39,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Fusion-Finance API",
         description="Local AI-powered financial analysis platform — Claude Finance domestic alternative",
-        version="0.5.4",
+        version=__version__,
         lifespan=lifespan,
     )
     app.state.port = DEFAULT_PORT
@@ -63,6 +64,9 @@ def create_app() -> FastAPI:
             error_type = "ai_client_error"
             status = 503
         detail = exc.safe_detail or exc.message or "internal error"
+        logger.error(
+            "FinanceError handled: %s | type=%s | detail=%s", exc.message, error_type, exc.detail, exc_info=True
+        )
         return JSONResponse(status_code=status, content={"error": error_type, "detail": detail})
 
     app.add_middleware(APIKeyMiddleware, api_key=get_api_key())

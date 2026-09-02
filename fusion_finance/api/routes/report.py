@@ -151,7 +151,18 @@ async def export_report(fmt: str, req: ExportRequest):
             template_name=req.template_name,
             template_data=req.template_data,
         )
-        return {"format": fmt_lower, "path": path, "status": "ok"}
+        actual_ext = str(path).rsplit(".", 1)[-1].lower() if "." in str(path) else fmt_lower
+        actual_format = "markdown" if actual_ext == "md" else actual_ext
+        degraded = actual_format != fmt_lower
+        if degraded:
+            logger.warning("export_report degraded: requested %s but wrote %s at %s", fmt_lower, actual_format, path)
+        return {
+            "format": actual_format,
+            "requested_format": fmt_lower,
+            "degraded": degraded,
+            "path": path,
+            "status": "ok",
+        }
     except ValueError as e:
         logger.warning("export_report value error: %s", e)
         raise HTTPException(status_code=400, detail="invalid export request")

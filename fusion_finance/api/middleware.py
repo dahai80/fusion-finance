@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import logging
 import time
@@ -41,7 +42,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
             audit = get_audit_trail()
             user = request.headers.get("x-auth-user", "") or "anonymous"
             query_redacted = _redact_query(str(request.query_params))
-            audit.record(
+            await asyncio.to_thread(
+                audit.record,
                 user=user,
                 action=f"{request.method} {request.url.path}",
                 module="api",
@@ -56,7 +58,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    EXEMPT_PATHS = {"/api/v1/", "/api/v1/ready", "/docs", "/openapi.json", "/redoc"}
+    EXEMPT_PATHS = ("/api/v1", "/api/v1/ready", "/docs", "/openapi.json", "/redoc")
 
     def __init__(self, app: Any, max_requests: int = 100, window_seconds: int = 60):
         super().__init__(app)
@@ -64,7 +66,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.window_seconds = window_seconds
         self._counts: dict[str, list[float]] = {}
 
+    def _is_exempt(self, path: str) -> bool:
+        return any(path == p or (p.endswith("/") and path.startswith(p)) for p in self.EXEMPT_PATHS)
+
     def _key(self, request: Request) -> str:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
         return request.client.host if request.client else "unknown"
 
     def _check(self, key: str) -> bool:
@@ -87,6 +95,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.method == "OPTIONS":
             return await call_next(request)
+        if self._is_exempt(request.url.path):
+            return await call_next(request)
         key = self._key(request)
         if not self._check(key):
             self._prune_keys()
@@ -101,7 +111,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    EXEMPT_PATHS = {"/api/v1/", "/api/v1/ready", "/docs", "/openapi.json", "/redoc"}
+    EXEMPT_PATHS = ("/api/v1", "/api/v1/ready", "/docs", "/openapi.json", "/redoc")
 
     def __init__(self, app: Any, api_key: str = ""):
         super().__init__(app)
@@ -111,7 +121,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if not self.api_key:
             return await call_next(request)
 
-        if request.url.path in self.EXEMPT_PATHS:
+        path = request.url.path
+        if path in self.EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
             return await call_next(request)
 
         if request.method == "OPTIONS":

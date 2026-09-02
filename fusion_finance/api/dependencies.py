@@ -26,4 +26,3 @@ def get_copilot_engine(request: Request) -> CopilotEngine:
         engine = CopilotEngine(get_mlx_client(request))
         request.app.state.copilot_engine = engine
     return engine
-

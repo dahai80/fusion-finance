@@ -8,6 +8,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _MAX_PARSE_LEN = 256 * 1024
+_HARD_CAP_LEN = 4 * 1024 * 1024
 
 
 def _extract_balanced(text: str, open_ch: str, close_ch: str) -> str | None:
@@ -53,8 +54,27 @@ def parse_json(text: Any) -> Any:
     text = text.strip()
     if not text:
         return None
+    if len(text) > _HARD_CAP_LEN:
+        logger.warning(
+            "parse_json input too long (%d), exceeding hard cap %d, returning None", len(text), _HARD_CAP_LEN
+        )
+        return None
     if len(text) > _MAX_PARSE_LEN:
-        logger.warning("parse_json input too long (%d), exceeding cap %d, returning None", len(text), _MAX_PARSE_LEN)
+        logger.info("parse_json input large (%d), skipping full-load, using balanced extract", len(text))
+        candidate = _strip_fences(text)
+        obj = _extract_balanced(candidate, "{", "}")
+        if obj:
+            try:
+                return json.loads(obj)
+            except json.JSONDecodeError:
+                pass
+        arr = _extract_balanced(candidate, "[", "]")
+        if arr:
+            try:
+                return json.loads(arr)
+            except json.JSONDecodeError:
+                pass
+        logger.debug("parse_json failed for large text (len=%d)", len(text))
         return None
     candidate = _strip_fences(text)
     try:
@@ -87,9 +107,9 @@ def extract_all_json(text: Any) -> list[Any]:
     text = text.strip()
     if not text:
         return []
-    if len(text) > _MAX_PARSE_LEN:
+    if len(text) > _HARD_CAP_LEN:
         logger.warning(
-            "extract_all_json input too long (%d), exceeding cap %d, returning []", len(text), _MAX_PARSE_LEN
+            "extract_all_json input too long (%d), exceeding hard cap %d, returning []", len(text), _HARD_CAP_LEN
         )
         return []
     candidate = _strip_fences(text)

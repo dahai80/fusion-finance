@@ -100,7 +100,7 @@ class TestMiddleware:
         assert mw.api_key == "secret123"
 
     def test_api_key_exempt_paths(self):
-        assert "/api/v1/" in APIKeyMiddleware.EXEMPT_PATHS
+        assert "/api/v1" in APIKeyMiddleware.EXEMPT_PATHS
         assert "/docs" in APIKeyMiddleware.EXEMPT_PATHS
 
 

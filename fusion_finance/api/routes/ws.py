@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from ...config import get_api_key
+from ...config import verify_api_key
 from ...copilot import CopilotEngine
 from ..dependencies import get_mlx_client
 
@@ -14,35 +14,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _WS_MAX_CONNECTIONS = 50
+_WS_GLOBAL_MAX = 100
 _ws_connections: dict[str, int] = {}
+_ws_total = 0
 
 
 def _check_auth(websocket: WebSocket) -> bool:
-    api_key = get_api_key()
-    if not api_key:
-        return True
     provided = websocket.headers.get("x-api-key", "")
     if not provided:
         auth = websocket.headers.get("authorization", "")
         if auth.lower().startswith("bearer "):
             provided = auth[7:].strip()
-    return bool(provided) and provided == api_key
+    return verify_api_key(provided)
 
 
 def _try_acquire(path: str) -> bool:
-    count = _ws_connections.get(path, 0)
-    if count >= _WS_MAX_CONNECTIONS:
+    global _ws_total
+    if _ws_total >= _WS_GLOBAL_MAX:
         return False
-    _ws_connections[path] = count + 1
+    if _ws_connections.get(path, 0) >= _WS_MAX_CONNECTIONS:
+        return False
+    _ws_connections[path] = _ws_connections.get(path, 0) + 1
+    _ws_total += 1
     return True
 
 
 def _release(path: str) -> None:
+    global _ws_total
     count = _ws_connections.get(path, 0)
     if count <= 1:
         _ws_connections.pop(path, None)
     else:
         _ws_connections[path] = count - 1
+    if _ws_total > 0:
+        _ws_total -= 1
 
 
 @router.websocket("/copilot")

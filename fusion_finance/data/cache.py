@@ -3,11 +3,18 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 import time
 from collections import OrderedDict
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# NOTE: compute_cache is process-local (in-memory OrderedDict). In a multi-node
+# deployment each node maintains its own cache with no shared invalidation — a
+# data update on node A leaves node B serving stale results until its local TTL
+# expires. For multi-node consistency either keep TTLs short or front this with
+# a shared cache (e.g. Redis) in a future iteration.
 
 
 class DataCache:
@@ -18,6 +25,8 @@ class DataCache:
         self._max_size = max_size or self.MAX_SIZE
         self._default_ttl = default_ttl or self.DEFAULT_TTL
         self._store: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._inflight: dict[str, threading.Event] = {}
+        self._lock = threading.Lock()
         logger.info("DataCache initialized (max_size=%d, ttl=%ds)", self._max_size, self._default_ttl)
 
     def get(self, key: str) -> Any | None:
@@ -89,9 +98,30 @@ def compute_cache(ttl: int = 0, namespace: str = ""):
             if cached is not None:
                 logger.debug("compute_cache hit: %s.%s", fn.__module__, fn.__qualname__)
                 return cached
+            with _compute_cache._lock:
+                event = _compute_cache._inflight.get(cache_key)
+                if event is None:
+                    event = threading.Event()
+                    _compute_cache._inflight[cache_key] = event
+                    is_leader = True
+                else:
+                    is_leader = False
+            if is_leader:
+                try:
+                    result = fn(*args, **kwargs)
+                    _compute_cache.set(cache_key, result, ttl or _compute_cache._default_ttl)
+                    logger.debug("compute_cache set: %s.%s", fn.__module__, fn.__qualname__)
+                finally:
+                    event.set()
+                    with _compute_cache._lock:
+                        _compute_cache._inflight.pop(cache_key, None)
+                return result
+            event.wait(timeout=30.0)
+            cached = _compute_cache.get(cache_key)
+            if cached is not None:
+                logger.debug("compute_cache single-flight hit: %s.%s", fn.__module__, fn.__qualname__)
+                return cached
             result = fn(*args, **kwargs)
-            _compute_cache.set(cache_key, result, ttl or _compute_cache._default_ttl)
-            logger.debug("compute_cache set: %s.%s", fn.__module__, fn.__qualname__)
             return result
 
         wrapper.__name__ = fn.__name__

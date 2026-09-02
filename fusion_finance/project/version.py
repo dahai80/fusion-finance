@@ -11,9 +11,6 @@ _REMOVED = "__removed__"
 
 
 class VersionControl:
-    def __init__(self):
-        self._diff_cache: dict[str, str] = {}
-
     @staticmethod
     def compute_hash(data: Any) -> str:
         raw = json.dumps(data, sort_keys=True, ensure_ascii=False, default=str)

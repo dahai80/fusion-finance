@@ -27,7 +27,9 @@ class ChatResponse(BaseModel):
     session_id: str = ""
 
 
-def _engine(mlx: MLXClient = Depends(get_mlx_client), shared: CopilotEngine = Depends(get_copilot_engine)) -> CopilotEngine:
+def _engine(
+    mlx: MLXClient = Depends(get_mlx_client), shared: CopilotEngine = Depends(get_copilot_engine)
+) -> CopilotEngine:
     if mlx is shared.mlx:
         return shared
     logger.debug("Building per-request CopilotEngine with injected MLXClient")

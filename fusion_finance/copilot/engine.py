@@ -45,15 +45,15 @@ def _truncate_messages(
         return all_messages
     system_msg = all_messages[0] if all_messages and all_messages[0].get("role") == "system" else None
     rest = list(all_messages[1:]) if system_msg else list(all_messages)
-    head_bytes = len(
-        json.dumps([system_msg], ensure_ascii=False, default=str).encode("utf-8", errors="replace")
-    ) if system_msg else 0
+    head_bytes = (
+        len(json.dumps([system_msg], ensure_ascii=False, default=str).encode("utf-8", errors="replace"))
+        if system_msg
+        else 0
+    )
     keep_bytes = head_bytes
     i = 0
     while i < len(rest):
-        msg_bytes = len(
-            json.dumps([rest[i]], ensure_ascii=False, default=str).encode("utf-8", errors="replace")
-        )
+        msg_bytes = len(json.dumps([rest[i]], ensure_ascii=False, default=str).encode("utf-8", errors="replace"))
         if keep_bytes + msg_bytes > byte_budget:
             break
         keep_bytes += msg_bytes
