@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -901,7 +902,8 @@ class TestLBOModel:
             exit_multiple=5.0,
         )
         result = model.calculate()
-        assert result["moic"] == 0
+        assert "error" in result
+        assert result["error"] == "equity contribution must be positive"
 
 
 class TestDDMModel:
@@ -941,12 +943,16 @@ class TestMergerModel:
             acquirer_price=100,
             target_price=50,
             premium=0.3,
+            acquirer_shares=1000,
+            target_shares=500,
+            acquirer_net_income=2000,
+            target_net_income=500,
         )
         result = model.calculate()
         assert result["offer_price"] == 50 * 1.3
         assert result["premium"] == 30.0
-        assert "acc_eps" in result
-        assert "diluted_eps" in result
+        assert "standalone_eps" in result
+        assert "pro_forma_eps" in result
         assert "accretion" in result
 
     def test_calculate_zero_prices(self):
@@ -955,7 +961,8 @@ class TestMergerModel:
         model = MergerModel(acquirer="A", target="T")
         result = model.calculate()
         assert result["offer_price"] == 0.0
-        assert result["acc_eps"] == 0.0
+        assert "error" in result
+        assert result["error"] == "merger model requires shares_outstanding and net_income for both parties"
 
 
 class TestAdvancedModelingEngine:
@@ -991,7 +998,7 @@ class TestConfig:
     def test_default_values(self):
         from fusion_finance.config import DEFAULT_HOST, DEFAULT_MLX_BASE_URL, DEFAULT_MODEL, DEFAULT_PORT
 
-        assert DEFAULT_HOST == "0.0.0.0"
+        assert DEFAULT_HOST == "127.0.0.1"
         assert DEFAULT_PORT == 11466
         assert DEFAULT_MLX_BASE_URL == "http://localhost:11432/v1"
         assert DEFAULT_MODEL != ""
@@ -1534,12 +1541,12 @@ class TestProjectExporter:
         mgr.update(proj.id, data={"key": "val"})
         mgr.snapshot(proj.id, label="v1")
         exporter = ProjectExporter(manager=mgr)
-        json_path = str(tmp_path / "export.json")
-        exporter.export_json(proj.id, output_path=json_path)
+        json_path = exporter.export_json(proj.id, output_path="export.json")
+        assert json_path is not None
 
         mgr2 = ProjectManager(data_dir=str(tmp_path / "projects2"))
         exporter2 = ProjectExporter(manager=mgr2)
-        imported_id = exporter2.import_json(json_path)
+        imported_id = exporter2.import_json(Path(json_path).name)
         assert imported_id is not None
 
     def test_import_json_not_found(self, tmp_path):
@@ -1560,12 +1567,12 @@ class TestProjectExporter:
         mgr.update(proj.id, data={"val": 42})
         mgr.snapshot(proj.id, label="v1")
         exporter = ProjectExporter(manager=mgr)
-        zip_path = str(tmp_path / "export.zip")
-        exporter.export_zip(proj.id, output_path=zip_path)
+        zip_path = exporter.export_zip(proj.id, output_path="export.zip")
+        assert zip_path is not None
 
         mgr2 = ProjectManager(data_dir=str(tmp_path / "projects2"))
         exporter2 = ProjectExporter(manager=mgr2)
-        imported_id = exporter2.import_zip(zip_path)
+        imported_id = exporter2.import_zip(Path(zip_path).name)
         assert imported_id is not None
 
     def test_import_zip_not_found(self, tmp_path):
@@ -1592,10 +1599,12 @@ class TestProjectExporter:
         assert result is None
 
     def test_import_json_with_versions(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.project.export import ProjectExporter
         from fusion_finance.project.manager import ProjectManager
 
-        json_path = tmp_path / "import_versions.json"
+        EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        json_path = EXPORT_DIR / "import_versions.json"
         data = {
             "name": "Versioned",
             "description": "test",
@@ -1609,7 +1618,7 @@ class TestProjectExporter:
         json_path.write_text(json.dumps(data), encoding="utf-8")
         mgr = ProjectManager(data_dir=str(tmp_path / "projects"))
         exporter = ProjectExporter(manager=mgr)
-        imported_id = exporter.import_json(str(json_path))
+        imported_id = exporter.import_json(json_path.name)
         assert imported_id is not None
         proj = mgr.get(imported_id)
         assert len(proj.versions) == 2
@@ -1620,30 +1629,40 @@ class TestProjectExporter:
 
 class TestReportFormatter:
     def test_export_markdown(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
         out = str(tmp_path / "report.md")
         result = fmt.export("# Hello", "markdown", output_path=out)
-        assert result == out
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".md")
+        assert Path(result).exists()
 
     def test_export_json(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
         out = str(tmp_path / "report.json")
         result = fmt.export("content", "json", output_path=out, template_data={"key": "val"})
-        assert result == out
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".json")
+        assert Path(result).exists()
 
     def test_export_html(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
         out = str(tmp_path / "report.html")
         result = fmt.export("<h1>Hello</h1>", "html", output_path=out)
-        assert result == out
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".html")
+        assert Path(result).exists()
 
     def test_export_html_with_template(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
@@ -1655,7 +1674,9 @@ class TestReportFormatter:
             template_name="valuation",
             template_data={"company": "TestCo", "body": "some content"},
         )
-        assert result == out
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".html")
+        assert Path(result).exists()
 
     def test_export_unsupported_format(self):
         from fusion_finance.report.formatter import ReportFormatter
@@ -1701,13 +1722,15 @@ class TestReportFormatter:
         assert "2024-01-01" in html
 
     def test_export_pdf_fallback_html(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
         out = str(tmp_path / "report.pdf")
-        fmt.export("<h1>PDF test</h1>", "pdf", output_path=out)
-        html_path = tmp_path / "report.html"
-        assert html_path.exists()
+        result = fmt.export("<h1>PDF test</h1>", "pdf", output_path=out)
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".html")
+        assert Path(result).exists()
 
     def test_export_xlsx_fallback_csv(self, tmp_path):
         from fusion_finance.report.formatter import ReportFormatter
@@ -3019,31 +3042,39 @@ class TestReportFormatterExtra:
         assert "Apple" in html
 
     def test_export_html_no_template(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
         out = str(tmp_path / "plain.html")
         result = fmt.export("<h1>Plain</h1>", "html", output_path=out)
-        assert result == out
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".html")
+        assert Path(result).exists()
 
     def test_export_json_with_data(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
         out = str(tmp_path / "data.json")
         result = fmt.export("content", "json", output_path=out, template_data={"metrics": {"roe": 15}})
-        assert result == out
-        with open(out) as f:
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".json")
+        with open(result) as f:
             data = json.load(f)
         assert "metrics" in data
 
     def test_export_md_with_template_data(self, tmp_path):
+        from fusion_finance.config import EXPORT_DIR
         from fusion_finance.report.formatter import ReportFormatter
 
         fmt = ReportFormatter()
         out = str(tmp_path / "report2.md")
         result = fmt.export("content", "markdown", output_path=out, template_data={"company": "Test"})
-        assert result == out
+        assert EXPORT_DIR.resolve() in Path(result).resolve().parents
+        assert result.endswith(".md")
+        assert Path(result).exists()
 
 
 # ── Additional coverage: middleware ──

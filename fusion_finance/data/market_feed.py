@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+import math
 import random
 import time
 from dataclasses import dataclass
 from typing import Any
 
+from ..exceptions import DataError
 from .csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
@@ -62,24 +64,34 @@ class MarketFeedSimulator:
     ]
 
     def __init__(self, seed: int | None = None):
-        if seed is not None:
-            random.seed(seed)
+        self._rng = random.Random(seed)
         self._price_state: dict[str, float] = {}
-        logger.info("MarketFeedSimulator initialized")
+        logger.info("MarketFeedSimulator initialized (seed=%s)", seed)
 
     def generate_quotes(self, market: str = "A") -> list[MarketQuote]:
-        stocks = self.A_STOCKS if market.upper() == "A" else self.HK_STOCKS
+        mkt = market.upper()
+        if mkt == "A":
+            stocks = self.A_STOCKS
+        elif mkt == "HK":
+            stocks = self.HK_STOCKS
+        else:
+            logger.warning("MarketFeedSimulator: unknown market %r", market)
+            raise DataError(message=f"Unknown market: {market}", detail=f"supported: A, HK; got {market!r}")
         quotes = []
         now = time.time()
         for symbol, name in stocks:
-            base = self._price_state.get(symbol, random.uniform(10, 2000))
-            change_pct = random.gauss(0, 0.03)
-            close = round(base * (1 + change_pct), 2)
-            high = round(close * (1 + abs(random.gauss(0, 0.01))), 2)
-            low = round(close * (1 - abs(random.gauss(0, 0.01))), 2)
-            open_price = round(random.uniform(low, high), 2)
-            volume = random.randint(100000, 50000000)
+            base = self._price_state.get(symbol, self._rng.uniform(10, 2000))
+            ret = self._rng.gauss(0, 0.03)
+            close = max(0.01, base * math.exp(ret))
+            close = round(close, 2)
+            high = round(close * (1 + abs(self._rng.gauss(0, 0.01))), 2)
+            low = round(max(0.01, close * (1 - abs(self._rng.gauss(0, 0.01)))), 2)
+            if low > high:
+                low, high = high, low
+            open_price = round(self._rng.uniform(low, high), 2)
+            volume = self._rng.randint(100000, 50000000)
             self._price_state[symbol] = close
+            change_pct = (close / base - 1) if base > 0 else 0.0
             quotes.append(
                 MarketQuote(
                     symbol=symbol,
@@ -99,22 +111,24 @@ class MarketFeedSimulator:
 
     def generate_ohlcv_series(self, symbol: str, base_price: float = 100.0, bars: int = 60) -> list[OHLCVBar]:
         series = []
-        price = base_price
+        price = max(0.01, base_price)
         now = time.time()
         day_seconds = 86400
         for i in range(bars):
-            change = random.gauss(0, 0.02)
-            price = price * (1 + change)
-            high = price * (1 + abs(random.gauss(0, 0.005)))
-            low = price * (1 - abs(random.gauss(0, 0.005)))
-            open_price = random.uniform(low, high)
-            volume = random.randint(1000000, 20000000)
+            ret = self._rng.gauss(0, 0.02)
+            price = max(0.01, price * math.exp(ret))
+            high = round(price * (1 + abs(self._rng.gauss(0, 0.005))), 2)
+            low = round(max(0.01, price * (1 - abs(self._rng.gauss(0, 0.005)))), 2)
+            if low > high:
+                low, high = high, low
+            open_price = round(self._rng.uniform(low, high), 2)
+            volume = self._rng.randint(1000000, 20000000)
             series.append(
                 OHLCVBar(
                     timestamp=now - (bars - i) * day_seconds,
-                    open=round(open_price, 2),
-                    high=round(high, 2),
-                    low=round(low, 2),
+                    open=open_price,
+                    high=high,
+                    low=low,
                     close=round(price, 2),
                     volume=volume,
                 )

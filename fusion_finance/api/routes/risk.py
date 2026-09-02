@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
+from ...config import MAX_LIST_LENGTH, MAX_SIMULATIONS
 from ...exceptions import RiskError
 from ...risk.advanced_risk import RiskModelingEngine, StressTestResult
 from ...risk.engine import RiskComplianceEngine
@@ -35,7 +36,7 @@ class ComplianceRequest(BaseModel):
 
 
 class VaRRequest(BaseModel):
-    returns: list[float] = Field(default_factory=list)
+    returns: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     portfolio_value: float = 1_000_000
     confidence: float = 0.95
 
@@ -45,15 +46,15 @@ class MonteCarloVaRRequest(BaseModel):
     mu: float = 0.08
     sigma: float = 0.20
     days: int = 252
-    simulations: int = 10000
+    simulations: int = Field(default=10000, ge=1, le=MAX_SIMULATIONS)
 
 
 class StressTestRequest(BaseModel):
     scenario: str = ""
     impact: float = 0.0
     probability: str = "medium"
-    affected_factors: list[str] = Field(default_factory=list)
-    mitigations: list[str] = Field(default_factory=list)
+    affected_factors: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    mitigations: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
 
 
 def _get_mlx() -> MLXClient:
@@ -69,6 +70,7 @@ async def kyc_screening(req: KYCRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("kyc_screening failed: %s", e)
         raise RiskError(message="kyc_screening failed", detail=str(e), risk_type="kyc_screening")
 
 
@@ -81,6 +83,7 @@ async def credit_assessment(req: CreditRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("credit_assessment failed: %s", e)
         raise RiskError(message="credit_assessment failed", detail=str(e), risk_type="credit_assessment")
 
 
@@ -93,6 +96,7 @@ async def compliance_check(req: ComplianceRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("compliance_check failed: %s", e)
         raise RiskError(message="compliance_check failed", detail=str(e), risk_type="compliance_check")
 
 
@@ -104,6 +108,7 @@ async def calculate_var(req: VaRRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("calculate_var failed: %s", e)
         raise RiskError(message="calculate_var failed", detail=str(e), risk_type="calculate_var")
 
 
@@ -121,6 +126,7 @@ async def monte_carlo_var(req: MonteCarloVaRRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("monte_carlo_var failed: %s", e)
         raise RiskError(message="monte_carlo_var failed", detail=str(e), risk_type="monte_carlo_var")
 
 
@@ -132,6 +138,7 @@ async def get_stress_scenarios():
     except RiskError:
         raise
     except Exception as e:
+        logger.error("get_stress_scenarios failed: %s", e)
         raise RiskError(message="get_stress_scenarios failed", detail=str(e), risk_type="get_stress_scenarios")
 
 
@@ -150,6 +157,7 @@ async def run_stress_test(req: StressTestRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("run_stress_test failed: %s", e)
         raise RiskError(message="run_stress_test failed", detail=str(e), risk_type="run_stress_test")
 
 
@@ -159,18 +167,18 @@ class SanctionsScreenRequest(BaseModel):
 
 
 class SanctionsBatchRequest(BaseModel):
-    entities: list[str] = Field(default_factory=list)
+    entities: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     threshold: float = 0.6
 
 
 class EntityGraphRequest(BaseModel):
-    nodes: list[dict[str, Any]] = Field(default_factory=list)
-    edges: list[dict[str, Any]] = Field(default_factory=list)
+    nodes: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    edges: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
 
 
 class UBORequest(BaseModel):
-    nodes: list[dict[str, Any]] = Field(default_factory=list)
-    edges: list[dict[str, Any]] = Field(default_factory=list)
+    nodes: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    edges: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     target_entity_id: str = ""
     threshold: float = 0.25
 
@@ -187,6 +195,7 @@ async def sanctions_screen(req: SanctionsScreenRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("sanctions_screen failed: %s", e)
         raise RiskError(message="sanctions_screen failed", detail=str(e), risk_type="sanctions_screen")
 
 
@@ -201,6 +210,7 @@ async def sanctions_batch(req: SanctionsBatchRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("sanctions_batch failed: %s", e)
         raise RiskError(message="sanctions_batch failed", detail=str(e), risk_type="sanctions_batch")
 
 
@@ -212,6 +222,7 @@ async def entity_graph(req: EntityGraphRequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("entity_graph failed: %s", e)
         raise RiskError(message="entity_graph failed", detail=str(e), risk_type="entity_graph")
 
 
@@ -225,4 +236,5 @@ async def resolve_ubo(req: UBORequest):
     except RiskError:
         raise
     except Exception as e:
+        logger.error("resolve_ubo failed: %s", e)
         raise RiskError(message="resolve_ubo failed", detail=str(e), risk_type="resolve_ubo")

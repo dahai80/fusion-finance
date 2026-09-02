@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import DEFAULT_MLX_BASE_URL, DEFAULT_MODEL
+from .exceptions import AIClientError
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,7 @@ class MLXClient:
         self.api_key = _resolve_api_key(api_key)
         self._client: Any = None
         self._httpx_client: Any = None
+        self.last_error: str = ""
         if _HAS_FUSION_CORE:
             self._client = FusionMLXClient(base_url=self.base_url)
         logger.info(
@@ -76,7 +79,8 @@ class MLXClient:
         max_tokens: int = 4096,
     ) -> str:
         model = model or self.default_model
-        last_err = None
+        last_err: Exception | None = None
+        self.last_error = ""
         for attempt in range(self.max_retries + 1):
             try:
                 if _HAS_FUSION_CORE and self._client is not None:
@@ -91,10 +95,19 @@ class MLXClient:
                     content = await self._chat_httpx(messages, model, temperature, max_tokens)
                 logger.debug("chat response len=%d, attempt=%d", len(content), attempt)
                 return content
+            except (TypeError, AttributeError, ValueError) as e:
+                logger.error("chat programming error (not retried): %s", e)
+                self.last_error = str(e)
+                raise AIClientError(message="chat programming error", detail=str(e), provider=self.base_url) from e
             except Exception as e:
                 last_err = e
                 logger.warning("chat attempt %d failed: %s", attempt, e)
-        logger.error("chat all retries exhausted: %s", last_err)
+                if attempt < self.max_retries:
+                    backoff = min(2**attempt, 8) * 0.1
+                    await asyncio.sleep(backoff)
+        err_msg = f"chat all retries exhausted: {last_err}"
+        logger.error(err_msg)
+        self.last_error = str(last_err) if last_err else "unknown"
         return ""
 
     async def _chat_httpx(

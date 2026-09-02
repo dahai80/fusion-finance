@@ -5,9 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 BASE_SYSTEM_PROMPT = (
-    "你是Fusion-Finance AI助手，专业的金融分析Copilot。\n"
-    "你可以帮助用户进行估值建模、风险分析、财务报表分析等任务。\n"
-    "所有计算和数据均在本地完成，不涉及任何数据上传。\n\n"
+    "你是Fusion-Finance AI助手，专业的金融分析Copilot。\n你可以帮助用户进行估值建模、风险分析、财务报表分析等任务。\n\n"
 )
 
 SCENARIO_PROMPTS = {
@@ -49,7 +47,6 @@ SCENARIO_PROMPTS = {
         "注意：\n"
         "- CSV导入支持自动编码检测和分隔符推断\n"
         "- 数据验证应检查：缺失值、数值范围、逻辑一致性\n"
-        "- 缓存有TTL过期机制，过期数据需重新加载\n"
     ),
 }
 
@@ -85,8 +82,8 @@ def build_system_prompt(scenario: str = "", tool_prompt: str = "") -> str:
     parts = [BASE_SYSTEM_PROMPT]
     if scenario and scenario in SCENARIO_PROMPTS:
         parts.append(SCENARIO_PROMPTS[scenario])
-    else:
-        logger.debug("No scenario prompt for: %s, using base only", scenario)
+    elif scenario:
+        logger.warning("Unknown scenario %r, using base prompt only", scenario)
     if tool_prompt:
         parts.append(tool_prompt)
     return "\n".join(parts)

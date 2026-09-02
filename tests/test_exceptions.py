@@ -141,4 +141,6 @@ class TestAPIExceptionHandler:
 def test_exceptions_log(caplog):
     with caplog.at_level(logging.ERROR, logger="fusion_finance.exceptions"):
         ModelError("logged", model_type="lbo")
-    assert any("ModelError" in rec.message for rec in caplog.records)
+    assert len(caplog.records) == 1
+    assert "FinanceError" in caplog.records[0].message
+    assert "logged" in caplog.records[0].message

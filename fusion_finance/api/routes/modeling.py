@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import asdict
 from typing import Any
@@ -8,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
+from ...config import MAX_LIST_LENGTH, MAX_SIMULATIONS
 from ...exceptions import ModelError
 from ...modeling.advanced import AdvancedModelingEngine, DDMModel, MergerModel
 from ...modeling.engine import DCFModel, FinancialModelingEngine, InteractiveDCFSession
@@ -24,15 +26,15 @@ _sessions: dict[str, InteractiveDCFSession] = {}
 
 class DCFBuildRequest(BaseModel):
     company: str
-    revenue: list[float]
+    revenue: list[float] = Field(max_length=MAX_LIST_LENGTH)
     assumptions: dict[str, Any] | None = None
 
 
 class DCFCalculateRequest(BaseModel):
     company: str = ""
     forecast_years: int = 5
-    revenue: list[float] = Field(default_factory=list)
-    ebit_margin: list[float] = Field(default_factory=list)
+    revenue: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    ebit_margin: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     tax_rate: float = 0.25
     wacc: float = 0.10
     terminal_growth: float = 0.03
@@ -43,39 +45,41 @@ class DCFCalculateRequest(BaseModel):
 class CompsBuildRequest(BaseModel):
     company: str
     industry: str
-    peers: list[str] | None = None
+    peers: list[str] | None = Field(default=None, max_length=MAX_LIST_LENGTH)
 
 
 class SensitivityRequest(BaseModel):
     company: str = ""
     forecast_years: int = 5
-    revenue: list[float] = Field(default_factory=list)
-    ebit_margin: list[float] = Field(default_factory=list)
+    revenue: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    ebit_margin: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     tax_rate: float = 0.25
     wacc: float = 0.10
     terminal_growth: float = 0.03
     net_debt: float = 0.0
     shares_outstanding: float = 0.0
-    wacc_range: list[float] = Field(default_factory=lambda: [0.08, 0.09, 0.10, 0.11, 0.12])
-    growth_range: list[float] = Field(default_factory=lambda: [0.01, 0.02, 0.03, 0.04, 0.05])
+    wacc_range: list[float] = Field(default_factory=lambda: [0.08, 0.09, 0.10, 0.11, 0.12], max_length=MAX_LIST_LENGTH)
+    growth_range: list[float] = Field(
+        default_factory=lambda: [0.01, 0.02, 0.03, 0.04, 0.05], max_length=MAX_LIST_LENGTH
+    )
 
 
 class MonteCarloRequest(BaseModel):
     company: str = ""
     forecast_years: int = 5
-    revenue: list[float] = Field(default_factory=list)
-    ebit_margin: list[float] = Field(default_factory=list)
+    revenue: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    ebit_margin: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     tax_rate: float = 0.25
     wacc: float = 0.10
     terminal_growth: float = 0.03
     net_debt: float = 0.0
     shares_outstanding: float = 0.0
-    simulations: int = 1000
+    simulations: int = Field(default=1000, ge=1, le=MAX_SIMULATIONS)
 
 
 class LBOBuildRequest(BaseModel):
     company: str
-    ebitda: list[float]
+    ebitda: list[float] = Field(max_length=MAX_LIST_LENGTH)
     assumptions: dict[str, Any] | None = None
 
 
@@ -96,7 +100,7 @@ class MergerRequest(BaseModel):
 
 class APVRequest(BaseModel):
     company: str = ""
-    unlevered_fcf: list[float] = Field(default_factory=list)
+    unlevered_fcf: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     unlevered_cost: float = 0.10
     debt: float = 0.0
     tax_rate: float = 0.25
@@ -106,25 +110,25 @@ class APVRequest(BaseModel):
 
 class EVARequest(BaseModel):
     company: str = ""
-    nopat: list[float] = Field(default_factory=list)
-    invested_capital: list[float] = Field(default_factory=list)
+    nopat: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    invested_capital: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     wacc: float = 0.10
 
 
 class RIRequest(BaseModel):
     company: str = ""
     book_value: float = 0.0
-    net_income: list[float] = Field(default_factory=list)
+    net_income: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     cost_of_equity: float = 0.12
 
 
 class PortfolioOptimizeRequest(BaseModel):
-    assets: list[str] = Field(default_factory=list)
-    returns: list[float] = Field(default_factory=list)
-    volatilities: list[float] = Field(default_factory=list)
-    correlations: list[list[float]] = Field(default_factory=list)
+    assets: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    returns: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    volatilities: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    correlations: list[list[float]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     risk_free: float = 0.03
-    num_simulations: int = 1000
+    num_simulations: int = Field(default=1000, ge=1, le=MAX_SIMULATIONS)
 
 
 class SessionCreateRequest(BaseModel):
@@ -140,8 +144,8 @@ class SessionUpdateRequest(BaseModel):
 class ScenarioRequest(BaseModel):
     company: str = ""
     forecast_years: int = 5
-    revenue: list[float] = Field(default_factory=list)
-    ebit_margin: list[float] = Field(default_factory=list)
+    revenue: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    ebit_margin: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     tax_rate: float = 0.25
     wacc: float = 0.10
     terminal_growth: float = 0.03
@@ -186,6 +190,7 @@ async def calculate_dcf(req: DCFCalculateRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("calculate_dcf failed: %s", e)
         raise ModelError(message="calculate_dcf failed", detail=str(e), model_type="calculate_dcf")
 
 
@@ -198,6 +203,7 @@ async def build_comps(req: CompsBuildRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("build_comps failed: %s", e)
         raise ModelError(message="build_comps failed", detail=str(e), model_type="build_comps")
 
 
@@ -222,6 +228,7 @@ async def sensitivity_analysis(req: SensitivityRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("sensitivity_analysis failed: %s", e)
         raise ModelError(message="sensitivity_analysis failed", detail=str(e), model_type="sensitivity_analysis")
 
 
@@ -241,12 +248,23 @@ async def monte_carlo(req: MonteCarloRequest):
         )
         model.calculate()
         engine = FinancialModelingEngine()
-        result = await engine.monte_carlo(model, req.simulations)
+        result = await asyncio.to_thread(_run_monte_carlo_blocking, engine, model, req.simulations)
         return result
     except ModelError:
         raise
     except Exception as e:
+        logger.error("monte_carlo failed: %s", e)
         raise ModelError(message="monte_carlo failed", detail=str(e), model_type="monte_carlo")
+
+
+def _run_monte_carlo_blocking(engine: FinancialModelingEngine, model: DCFModel, simulations: int):
+    import asyncio as _asyncio
+
+    loop = _asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(engine.monte_carlo(model, simulations))
+    finally:
+        loop.close()
 
 
 @router.post("/lbo", summary="AI辅助LBO模型")
@@ -258,6 +276,7 @@ async def build_lbo(req: LBOBuildRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("build_lbo failed: %s", e)
         raise ModelError(message="build_lbo failed", detail=str(e), model_type="build_lbo")
 
 
@@ -275,6 +294,7 @@ async def calculate_ddm(req: DDMRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("calculate_ddm failed: %s", e)
         raise ModelError(message="calculate_ddm failed", detail=str(e), model_type="calculate_ddm")
 
 
@@ -293,6 +313,7 @@ async def calculate_merger(req: MergerRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("calculate_merger failed: %s", e)
         raise ModelError(message="calculate_merger failed", detail=str(e), model_type="calculate_merger")
 
 
@@ -313,6 +334,7 @@ async def calculate_apv(req: APVRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("calculate_apv failed: %s", e)
         raise ModelError(message="calculate_apv failed", detail=str(e), model_type="calculate_apv")
 
 
@@ -330,6 +352,7 @@ async def calculate_eva(req: EVARequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("calculate_eva failed: %s", e)
         raise ModelError(message="calculate_eva failed", detail=str(e), model_type="calculate_eva")
 
 
@@ -347,6 +370,7 @@ async def calculate_ri(req: RIRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("calculate_ri failed: %s", e)
         raise ModelError(message="calculate_ri failed", detail=str(e), model_type="calculate_ri")
 
 
@@ -372,6 +396,7 @@ async def optimize_portfolio(req: PortfolioOptimizeRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("optimize_portfolio failed: %s", e)
         raise ModelError(message="optimize_portfolio failed", detail=str(e), model_type="optimize_portfolio")
 
 
@@ -410,6 +435,7 @@ async def create_session(req: SessionCreateRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("create_session failed: %s", e)
         raise ModelError(message="create_session failed", detail=str(e), model_type="create_session")
 
 
@@ -424,6 +450,7 @@ async def update_session(session_id: str, req: SessionUpdateRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("update_session failed: %s", e)
         raise ModelError(message="update_session failed", detail=str(e), model_type="update_session")
 
 
@@ -454,11 +481,12 @@ async def scenario_compare(req: ScenarioRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("scenario_compare failed: %s", e)
         raise ModelError(message="scenario_compare failed", detail=str(e), model_type="scenario_compare")
 
 
 class BatchDCFRequest(BaseModel):
-    models: list[dict[str, Any]] = Field(default_factory=list)
+    models: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
 
 
 @router.post("/batch-dcf", summary="批量DCF计算(纯数学)")
@@ -469,21 +497,22 @@ async def batch_dcf(req: BatchDCFRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("batch_dcf failed: %s", e)
         raise ModelError(message="batch_dcf failed", detail=str(e), model_type="batch_dcf")
 
 
 class BLRequest(BaseModel):
-    market_weights: list[float] = Field(default_factory=list)
-    cov_matrix: list[list[float]] = Field(default_factory=list)
+    market_weights: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    cov_matrix: list[list[float]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     risk_aversion: float = 2.5
-    views: list[list[float]] | None = None
-    view_returns: list[float] | None = None
+    views: list[list[float]] | None = Field(default=None, max_length=MAX_LIST_LENGTH)
+    view_returns: list[float] | None = Field(default=None, max_length=MAX_LIST_LENGTH)
     tau: float = 0.05
     risk_free: float = 0.03
 
 
 class YieldCurveRequest(BaseModel):
-    maturities: list[float] = Field(default_factory=list)
+    maturities: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     beta0: float = 0.04
     beta1: float = -0.02
     beta2: float = -0.01
@@ -491,8 +520,8 @@ class YieldCurveRequest(BaseModel):
 
 
 class YieldCurveCalibrateRequest(BaseModel):
-    observed_maturities: list[float] = Field(default_factory=list)
-    observed_rates: list[float] = Field(default_factory=list)
+    observed_maturities: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    observed_rates: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
 
 
 @router.post("/portfolio/black-litterman", summary="Black-Litterman组合优化(纯数学)")
@@ -520,6 +549,7 @@ async def black_litterman(req: BLRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("black_litterman failed: %s", e)
         raise ModelError(message="black_litterman failed", detail=str(e), model_type="black_litterman")
 
 
@@ -532,6 +562,7 @@ async def yield_curve(req: YieldCurveRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("yield_curve failed: %s", e)
         raise ModelError(message="yield_curve failed", detail=str(e), model_type="yield_curve")
 
 
@@ -544,4 +575,5 @@ async def yield_curve_calibrate(req: YieldCurveCalibrateRequest):
     except ModelError:
         raise
     except Exception as e:
+        logger.error("yield_curve_calibrate failed: %s", e)
         raise ModelError(message="yield_curve_calibrate failed", detail=str(e), model_type="yield_curve_calibrate")

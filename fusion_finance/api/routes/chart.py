@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ...chart import ChartRenderer
+from ...config import MAX_LIST_LENGTH
 from ...exceptions import FinanceError
 
 logger = logging.getLogger(__name__)
@@ -17,27 +18,27 @@ _renderer = ChartRenderer()
 
 class CandlestickRequest(BaseModel):
     symbol: str = ""
-    data: list[dict[str, float]] = Field(default_factory=list)
+    data: list[dict[str, float]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     title: str = "Price Chart"
 
 
 class HeatmapRequest(BaseModel):
-    matrix: list[list[float]] = Field(default_factory=list)
-    row_labels: list[str] = Field(default_factory=list)
-    col_labels: list[str] = Field(default_factory=list)
+    matrix: list[list[float]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    row_labels: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    col_labels: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     title: str = "Sensitivity Matrix"
 
 
 class WaterfallRequest(BaseModel):
-    categories: list[str] = Field(default_factory=list)
-    values: list[float] = Field(default_factory=list)
+    categories: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    values: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     title: str = "Bridge Analysis"
 
 
 class SensitivityChartRequest(BaseModel):
-    factors: list[str] = Field(default_factory=list)
-    low_values: list[float] = Field(default_factory=list)
-    high_values: list[float] = Field(default_factory=list)
+    factors: list[str] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    low_values: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
+    high_values: list[float] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     base_value: float = 0.0
     title: str = "Tornado Chart"
 
@@ -50,6 +51,7 @@ async def candlestick(req: CandlestickRequest):
     except FinanceError:
         raise
     except Exception as e:
+        logger.error("candlestick failed: %s", e)
         raise FinanceError(message="candlestick failed", detail=str(e))
 
 
@@ -65,6 +67,7 @@ async def heatmap(req: HeatmapRequest):
     except FinanceError:
         raise
     except Exception as e:
+        logger.error("heatmap failed: %s", e)
         raise FinanceError(message="heatmap failed", detail=str(e))
 
 
@@ -76,6 +79,7 @@ async def waterfall(req: WaterfallRequest):
     except FinanceError:
         raise
     except Exception as e:
+        logger.error("waterfall failed: %s", e)
         raise FinanceError(message="waterfall failed", detail=str(e))
 
 
@@ -96,4 +100,5 @@ async def sensitivity_chart(req: SensitivityChartRequest):
     except FinanceError:
         raise
     except Exception as e:
+        logger.error("sensitivity_chart failed: %s", e)
         raise FinanceError(message="sensitivity_chart failed", detail=str(e))

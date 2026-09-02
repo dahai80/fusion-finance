@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import asdict
+from datetime import datetime
 from typing import Any
 
+from ..data.validator import DataValidator
 from .analyzer import FinancialStatement
 
 logger = logging.getLogger(__name__)
@@ -59,6 +62,26 @@ STANDARD_MAPPINGS: dict[str, dict[str, str]] = {
 }
 
 
+def _period_key(period: str) -> tuple[int, ...]:
+    if not period:
+        logger.warning("_period_key: empty period string")
+        return (0,)
+    cleaned = period.strip()
+    q_match = re.match(r"^(\d{4})\D*Q([1-4])", cleaned, re.IGNORECASE)
+    if q_match:
+        year = int(q_match.group(1))
+        quarter = int(q_match.group(2))
+        return (year, quarter, 0)
+    for pat in ("%Y-%m-%d", "%Y-%m", "%Y年%m月", "%Y"):
+        try:
+            dt = datetime.strptime(cleaned, pat)
+            return (dt.year, dt.month or 1, dt.day or 1)
+        except ValueError:
+            continue
+    logger.warning("_period_key: unparseable period %r, using lex fallback", cleaned)
+    return (0, 0, 0)
+
+
 class StatementNormalizer:
     def __init__(self, standard: str = "A"):
         self.standard = standard.upper()
@@ -66,11 +89,25 @@ class StatementNormalizer:
         logger.info("Normalizer initialized: standard=%s, fields=%d", self.standard, len(self.mapping))
 
     def normalize(self, raw: dict[str, Any], company: str = "", period: str = "") -> FinancialStatement:
+        validator = DataValidator()
         mapped: dict[str, float] = {}
         for raw_key, raw_val in raw.items():
             canonical = self.mapping.get(raw_key)
-            if canonical and isinstance(raw_val, (int, float)):
+            if not canonical:
+                continue
+            if isinstance(raw_val, (int, float)):
                 mapped[canonical] = float(raw_val)
+            elif isinstance(raw_val, str):
+                sanitized = validator.sanitize_numeric(raw_val, default=None)
+                if sanitized is None:
+                    logger.warning(
+                        "normalize: unparseable numeric field %s=%r for company=%s, skipped",
+                        raw_key,
+                        raw_val,
+                        company or raw.get("company", ""),
+                    )
+                else:
+                    mapped[canonical] = sanitized
         stmt = FinancialStatement(
             company=company or raw.get("company", raw.get("公司名称", "")),
             period=period or raw.get("period", raw.get("报告期", "")),
@@ -89,8 +126,15 @@ class StatementNormalizer:
 
     def normalize_multi(self, raw_list: list[dict[str, Any]], standard: str = "") -> list[FinancialStatement]:
         if standard and standard.upper() != self.standard:
-            self.standard = standard.upper()
-            self.mapping = STANDARD_MAPPINGS.get(self.standard, US_GAAP_MAPPING)
+            tmp_standard = standard.upper()
+            tmp_mapping = STANDARD_MAPPINGS.get(tmp_standard, US_GAAP_MAPPING)
+            logger.info(
+                "normalize_multi: using transient standard=%s (self.standard=%s unchanged)", tmp_standard, self.standard
+            )
+            tmp_normalizer = StatementNormalizer.__new__(StatementNormalizer)
+            tmp_normalizer.standard = tmp_standard
+            tmp_normalizer.mapping = tmp_mapping
+            return [tmp_normalizer.normalize(raw) for raw in raw_list]
         return [self.normalize(raw) for raw in raw_list]
 
     @staticmethod
@@ -129,7 +173,7 @@ class StatementNormalizer:
     def trend_analysis(statements: list[FinancialStatement]) -> dict[str, Any]:
         if len(statements) < 2:
             return {"error": "Need at least 2 periods for trend analysis"}
-        sorted_stmts = sorted(statements, key=lambda s: s.period)
+        sorted_stmts = sorted(statements, key=lambda s: _period_key(s.period))
         metrics = ("revenue", "net_income", "operating_income")
         trends: dict[str, Any] = {}
         for metric in metrics:

@@ -10,6 +10,20 @@ logger = logging.getLogger(__name__)
 
 MAX_HISTORY = 50
 MAX_SESSIONS = 100
+MAX_MESSAGE_CHARS = 8000
+MAX_SESSION_BYTES = 200_000
+_TRUNCATED_SUFFIX = "...[truncated]"
+
+
+def _cap_content(content: str) -> str:
+    if not isinstance(content, str):
+        content = str(content)
+    if len(content) > MAX_MESSAGE_CHARS:
+        keep = MAX_MESSAGE_CHARS - len(_TRUNCATED_SUFFIX)
+        if keep < 0:
+            return _TRUNCATED_SUFFIX[:MAX_MESSAGE_CHARS]
+        return content[:keep] + _TRUNCATED_SUFFIX
+    return content
 
 
 class ConversationMemory:
@@ -25,16 +39,21 @@ class ConversationMemory:
                 "messages": [],
                 "context": {},
                 "created_at": time.time(),
+                "byte_size": 0,
             }
-        self._sessions[session_id]["messages"].append(
-            {
-                "role": role,
-                "content": content,
-                "timestamp": time.time(),
-            }
-        )
-        if len(self._sessions[session_id]["messages"]) > self._max_history:
-            self._sessions[session_id]["messages"] = self._sessions[session_id]["messages"][-self._max_history :]
+        session = self._sessions[session_id]
+        capped = _cap_content(content)
+        msg = {
+            "role": role,
+            "content": capped,
+            "timestamp": time.time(),
+        }
+        session["messages"].append(msg)
+        session["byte_size"] += len(capped.encode("utf-8", errors="replace"))
+        if len(session["messages"]) > self._max_history:
+            dropped = session["messages"].pop(0)
+            session["byte_size"] -= len(dropped["content"].encode("utf-8", errors="replace"))
+        self._enforce_session_byte_cap(session_id)
         self._sessions.move_to_end(session_id)
 
     def get_messages(self, session_id: str, limit: int = 0) -> list[dict[str, str]]:
@@ -62,8 +81,8 @@ class ConversationMemory:
         if not session:
             return {}
         return {
-            "messages": session["messages"],
-            "context": session["context"],
+            "messages": list(session["messages"]),
+            "context": dict(session["context"]),
         }
 
     def clear_session(self, session_id: str) -> bool:
@@ -80,6 +99,7 @@ class ConversationMemory:
                     "session_id": sid,
                     "message_count": len(session["messages"]),
                     "created_at": session.get("created_at", 0),
+                    "byte_size": session.get("byte_size", 0),
                 }
             )
         return result
@@ -88,6 +108,21 @@ class ConversationMemory:
         while len(self._sessions) >= self._max_sessions:
             self._sessions.popitem(last=False)
             logger.debug("Evicted oldest session")
+
+    def _enforce_session_byte_cap(self, session_id: str) -> None:
+        session = self._sessions.get(session_id)
+        if not session:
+            return
+        while session["byte_size"] > MAX_SESSION_BYTES and session["messages"]:
+            dropped = session["messages"].pop(0)
+            session["byte_size"] -= len(dropped["content"].encode("utf-8", errors="replace"))
+            if session["byte_size"] < 0:
+                session["byte_size"] = 0
+            logger.warning(
+                "session %s exceeded byte cap %d, evicted oldest message",
+                session_id,
+                MAX_SESSION_BYTES,
+            )
 
     @staticmethod
     def new_session_id() -> str:

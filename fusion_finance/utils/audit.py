@@ -11,6 +11,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_AUDIT_SINGLETON: AuditTrail | None = None
+_MAX_INMEMORY_ENTRIES = 5000
+_MAX_FILE_STATS_LINES = 100000
+
 
 @dataclass
 class AuditEntry:
@@ -23,11 +27,19 @@ class AuditEntry:
     duration_ms: float = 0.0
 
 
+def get_audit_trail(log_path: str = "") -> AuditTrail:
+    global _AUDIT_SINGLETON
+    if _AUDIT_SINGLETON is None or log_path:
+        _AUDIT_SINGLETON = AuditTrail(log_path)
+    return _AUDIT_SINGLETON
+
+
 class AuditTrail:
     def __init__(self, log_path: str = ""):
         self.log_path = log_path or str(Path.home() / ".fusion" / "finance" / "audit.jsonl")
         Path(self.log_path).parent.mkdir(parents=True, exist_ok=True)
         self._entries: list[AuditEntry] = []
+        self._corrupted_count = 0
 
     def record(
         self, user: str, action: str, module: str, details: str = "", status: str = "success", duration_ms: float = 0.0
@@ -42,6 +54,8 @@ class AuditTrail:
             duration_ms=duration_ms,
         )
         self._entries.append(entry)
+        if len(self._entries) > _MAX_INMEMORY_ENTRIES:
+            self._entries = self._entries[-_MAX_INMEMORY_ENTRIES:]
         try:
             with open(self.log_path, "a") as f:
                 f.write(json.dumps(entry.__dict__) + "\n")
@@ -60,22 +74,16 @@ class AuditTrail:
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEntry]:
-        results = []
-        for e in reversed(self._entries):
-            if user and e.user != user:
-                continue
-            if action and e.action != action:
-                continue
-            if module and e.module != module:
-                continue
-            if status and e.status != status:
-                continue
-            if start_time and e.timestamp < start_time:
-                continue
-            if end_time and e.timestamp > end_time:
-                continue
-            results.append(e)
-        return results[offset : offset + limit]
+        return self.query_from_file(
+            user=user,
+            action=action,
+            module=module,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+            offset=offset,
+        )
 
     def query_from_file(
         self,
@@ -89,6 +97,7 @@ class AuditTrail:
         offset: int = 0,
     ) -> list[AuditEntry]:
         results = []
+        corrupted = 0
         try:
             with open(self.log_path) as f:
                 lines = f.readlines()
@@ -102,6 +111,7 @@ class AuditTrail:
                 raw = json.loads(line)
                 e = AuditEntry(**raw)
             except Exception:
+                corrupted += 1
                 continue
             if user and e.user != user:
                 continue
@@ -118,6 +128,8 @@ class AuditTrail:
             results.append(e)
             if len(results) >= offset + limit:
                 break
+        if corrupted:
+            logger.warning("audit query skipped %d corrupted entries", corrupted)
         return results[offset : offset + limit]
 
     def get_stats(self) -> dict[str, Any]:
@@ -125,9 +137,15 @@ class AuditTrail:
 
     def get_stats_from_file(self) -> dict[str, Any]:
         entries = []
+        corrupted = 0
+        processed = 0
         try:
             with open(self.log_path) as f:
                 for line in f:
+                    if processed >= _MAX_FILE_STATS_LINES:
+                        logger.warning("audit stats capped at %d lines", _MAX_FILE_STATS_LINES)
+                        break
+                    processed += 1
                     line = line.strip()
                     if not line:
                         continue
@@ -135,10 +153,13 @@ class AuditTrail:
                         raw = json.loads(line)
                         entries.append(AuditEntry(**raw))
                     except Exception:
+                        corrupted += 1
                         continue
         except FileNotFoundError:
             pass
-        return self._compute_stats(entries)
+        stats = self._compute_stats(entries)
+        stats["corrupted_skipped"] = corrupted
+        return stats
 
     def _compute_stats(self, entries: list[AuditEntry]) -> dict[str, Any]:
         if not entries:

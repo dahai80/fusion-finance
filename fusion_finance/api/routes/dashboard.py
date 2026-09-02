@@ -10,8 +10,6 @@ from ...ai_client import MLXClient
 from ...exceptions import FinanceError
 from ...modeling.engine import DCFModel
 from ...modeling.scenarios import ScenarioManager
-from ...risk.engine import RiskComplianceEngine
-from ...statements.analyzer import StatementAnalyzer
 from ...statements.screener import FinancialScreener
 
 logger = logging.getLogger(__name__)
@@ -62,23 +60,11 @@ async def company_dashboard(req: CompanyDashboardRequest):
         result["dcf"] = None
         result["scenarios"] = None
 
-    try:
-        StatementAnalyzer()
-        metrics = {
-            "gross_margin": round(req.ebit_margin[0] * 0.7, 2) if req.ebit_margin else None,
-            "ebit_margin": req.ebit_margin[0] if req.ebit_margin else None,
-        }
-        result["key_metrics"] = metrics
-    except Exception as e:
-        logger.warning("company_dashboard metrics failed: %s", e)
-        result["key_metrics"] = None
-
-    try:
-        RiskComplianceEngine()
-        result["risk_summary"] = {"status": "available", "note": "Use /api/v1/risk/kyc for detailed screening"}
-    except Exception as e:
-        logger.warning("company_dashboard risk failed: %s", e)
-        result["risk_summary"] = None
+    result["key_metrics"] = {
+        "source": "input_echo",
+        "ebit_margin": req.ebit_margin[0] if req.ebit_margin else None,
+    }
+    result["risk_summary"] = {"status": "available", "note": "Use /api/v1/risk/kyc for detailed screening"}
 
     logger.info("company_dashboard: %s", req.company)
     return result

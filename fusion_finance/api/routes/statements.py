@@ -5,9 +5,10 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
+from ...config import MAX_LIST_LENGTH
 from ...exceptions import DataError
 from ...statements.analyzer import FinancialStatement, StatementAnalyzer
 from ...statements.normalizer import StatementNormalizer
@@ -38,7 +39,7 @@ class MetricsRequest(BaseModel):
 
 
 class ValidateRequest(BaseModel):
-    statements: list[MetricsRequest]
+    statements: list[MetricsRequest] = Field(max_length=MAX_LIST_LENGTH)
 
 
 class ScreenerRequest(BaseModel):
@@ -54,7 +55,7 @@ class NormalizeRequest(BaseModel):
 
 
 class TrendRequest(BaseModel):
-    statements: list[MetricsRequest]
+    statements: list[MetricsRequest] = Field(max_length=MAX_LIST_LENGTH)
 
 
 def _get_mlx() -> MLXClient:
@@ -70,6 +71,7 @@ async def analyze_statements(req: AnalyzeRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("analyze_statements failed: %s", e)
         raise DataError(message="analyze_statements failed", detail=str(e), field="analyze_statements")
 
 
@@ -95,6 +97,7 @@ async def calculate_metrics(req: MetricsRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("calculate_metrics failed: %s", e)
         raise DataError(message="calculate_metrics failed", detail=str(e), field="calculate_metrics")
 
 
@@ -124,6 +127,7 @@ async def validate_balance_sheet(req: ValidateRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("validate_balance_sheet failed: %s", e)
         raise DataError(message="validate_balance_sheet failed", detail=str(e), field="validate_balance_sheet")
 
 
@@ -150,6 +154,7 @@ async def screener(req: ScreenerRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("screener failed: %s", e)
         raise DataError(message="screener failed", detail=str(e), field="screener")
 
 
@@ -162,6 +167,7 @@ async def normalize_statement(req: NormalizeRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("normalize_statement failed: %s", e)
         raise DataError(message="normalize_statement failed", detail=str(e), field="normalize_statement")
 
 
@@ -189,6 +195,7 @@ async def trend_analysis(req: TrendRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("trend_analysis failed: %s", e)
         raise DataError(message="trend_analysis failed", detail=str(e), field="trend_analysis")
 
 

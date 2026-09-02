@@ -6,6 +6,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..config import EXPORT_DIR
+from ..exceptions import ReportError
+from ..utils.safe_path import safe_join, sanitize_name
+
 logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -113,12 +117,28 @@ class ReportFormatter:
         fmt = fmt.lower()
         if fmt not in SUPPORTED_FORMATS:
             raise ValueError(f"Unsupported format: {fmt}. Supported: {SUPPORTED_FORMATS}")
-        if not output_path:
+        ext = fmt if fmt != FORMAT_MD else "md"
+        if output_path:
+            name = sanitize_name(output_path, fallback="")
+            if not name:
+                logger.error("export path rejected by sanitize_name: %s", output_path)
+                raise ReportError(report_type="export", message="invalid export path")
+        else:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            ext = fmt if fmt != FORMAT_MD else "md"
-            output_path = f"report_{ts}.{ext}"
-        path = Path(output_path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
+            title = ""
+            if template_data and isinstance(template_data, dict):
+                title = template_data.get("company") or template_data.get("title") or ""
+            base_name = sanitize_name(title, fallback="report")
+            name = f"{base_name}_{ts}"
+        path = safe_join(EXPORT_DIR, name, suffix=f".{ext}")
+        if path is None:
+            logger.error("export path traversal blocked: name=%s", name)
+            raise ReportError(report_type="export", message="invalid export path")
+        try:
+            EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.error("failed to create export dir %s: %s", EXPORT_DIR, e)
+            raise ReportError(report_type="export", message="invalid export path") from e
         if fmt == FORMAT_HTML:
             html = content
             if template_name and template_data:
@@ -207,15 +227,15 @@ class ReportFormatter:
             if data and "dcf_summary" in data:
                 ws.append(["指标", "数值"])
                 for item in data["dcf_summary"]:
-                    ws.append([item.get("label", ""), item.get("value", "")])
+                    ws.append([_sanitize_cell(item.get("label", "")), _sanitize_cell(item.get("value", ""))])
             elif data and "financial_table" in data:
                 ft = data["financial_table"]
-                ws.append(ft.get("columns", []))
+                ws.append([_sanitize_cell(c) for c in ft.get("columns", [])])
                 for row in ft.get("rows", []):
-                    ws.append(row)
+                    ws.append([_sanitize_cell(c) for c in row])
             else:
                 for line in content.split("\n"):
-                    ws.append([line])
+                    ws.append([_sanitize_cell(line)])
             wb.save(str(path))
             logger.info("Exported XLSX: %s", path)
             return None
@@ -224,6 +244,14 @@ class ReportFormatter:
             csv_path = path.with_suffix(".csv")
             csv_path.write_text(content, encoding="utf-8")
             return csv_path
+
+
+def _sanitize_cell(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    if value and value[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
 
 
 def _split_content(text: str, max_chars: int = 800) -> list[str]:

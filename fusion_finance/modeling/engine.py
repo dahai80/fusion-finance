@@ -47,6 +47,17 @@ class DCFModel:
             nopat = ebit * (1 - self.tax_rate)
             fcf.append(nopat)
         pv_fcf = sum(fcf[i] / (1 + self.wacc) ** (i + 1) for i in range(len(fcf)))
+        if fcf and self.wacc <= self.terminal_growth:
+            logger.error(
+                "DCF terminal value invalid: wacc=%s must exceed terminal_growth=%s",
+                self.wacc,
+                self.terminal_growth,
+            )
+            return {
+                "error": "WACC must exceed terminal growth",
+                "wacc": self.wacc,
+                "terminal_growth": self.terminal_growth,
+            }
         tv = fcf[-1] * (1 + self.terminal_growth) / (self.wacc - self.terminal_growth) if fcf else 0
         pv_tv = tv / (1 + self.wacc) ** len(fcf)
         self.enterprise_value = pv_fcf + pv_tv
@@ -230,19 +241,27 @@ class FinancialModelingEngine:
             results[f"wacc={wacc:.1%}"] = row
         return {"matrix": results, "wacc_range": wacc_range, "growth_range": growth_range}
 
-    async def monte_carlo(self, model: DCFModel, simulations: int = 1000) -> dict[str, Any]:
+    async def monte_carlo(self, model: DCFModel, simulations: int = 1000, seed: int | None = None) -> dict[str, Any]:
         """蒙特卡洛模拟 — 评估估值区间。"""
         import random
 
+        if simulations <= 0:
+            logger.error("monte_carlo: simulations must be positive, got %d", simulations)
+            return {"error": "simulations must be positive", "simulations": simulations}
+        rng = random.Random(seed) if seed is not None else random.Random()
         values = []
         for _ in range(simulations):
-            wacc = model.wacc * (1 + random.gauss(0, 0.1))
-            growth = model.terminal_growth * (1 + random.gauss(0, 0.2))
-            revenue_mult = [1 + random.gauss(0, 0.05) for _ in model.revenue]
+            wacc = model.wacc * (1 + rng.gauss(0, 0.1))
+            if wacc <= 0.01:
+                wacc = 0.01
+            growth = model.terminal_growth * (1 + rng.gauss(0, 0.2))
+            if growth >= wacc:
+                growth = wacc - 0.01
+            revenue_mult = [1 + rng.gauss(0, 0.05) for _ in model.revenue]
             m = DCFModel(
                 company=model.company,
                 forecast_years=model.forecast_years,
-                revenue=[r * m for r, m in zip(model.revenue, revenue_mult)],
+                revenue=[r * mv for r, mv in zip(model.revenue, revenue_mult)],
                 ebit_margin=model.ebit_margin,
                 tax_rate=model.tax_rate,
                 wacc=wacc,
@@ -250,8 +269,13 @@ class FinancialModelingEngine:
                 net_debt=model.net_debt,
                 shares_outstanding=model.shares_outstanding,
             )
-            m.calculate()
+            result = m.calculate()
+            if "error" in result:
+                continue
             values.append(m.equity_value)
+        if not values:
+            logger.error("monte_carlo: no valid simulations produced")
+            return {"error": "no valid simulations", "simulations": simulations}
         values.sort()
         return {
             "mean": round(sum(values) / len(values), 2),
@@ -262,7 +286,7 @@ class FinancialModelingEngine:
             "p95": round(values[int(len(values) * 0.95)], 2),
             "min": round(values[0], 2),
             "max": round(values[-1], 2),
-            "simulations": simulations,
+            "simulations": len(values),
         }
 
     @staticmethod

@@ -33,15 +33,15 @@ class FinancialStatement:
 class FinancialAnalysis:
     company: str = ""
     period: str = ""
-    revenue_growth: float = 0.0
-    gross_margin: float = 0.0
-    operating_margin: float = 0.0
-    net_margin: float = 0.0
-    roe: float = 0.0
-    roa: float = 0.0
-    debt_ratio: float = 0.0
-    current_ratio: float = 0.0
-    pe_ratio: float = 0.0
+    revenue_growth: float | None = None
+    gross_margin: float | None = None
+    operating_margin: float | None = None
+    net_margin: float | None = None
+    roe: float | None = None
+    roa: float | None = None
+    debt_ratio: float | None = None
+    current_ratio: float | None = None
+    pe_ratio: float | None = None
     key_findings: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
 
@@ -53,18 +53,32 @@ class StatementAnalyzer:
     def calculate_metrics(self, stmt: FinancialStatement) -> FinancialAnalysis:
         analysis = FinancialAnalysis(company=stmt.company, period=stmt.period)
         if stmt.revenue:
-            analysis.gross_margin = round(stmt.gross_profit / stmt.revenue * 100, 2) if stmt.gross_profit else 0
+            analysis.gross_margin = (
+                round(stmt.gross_profit / stmt.revenue * 100, 2) if stmt.gross_profit is not None else None
+            )
             analysis.operating_margin = (
-                round(stmt.operating_income / stmt.revenue * 100, 2) if stmt.operating_income else 0
+                round(stmt.operating_income / stmt.revenue * 100, 2) if stmt.operating_income is not None else None
             )
-            analysis.net_margin = round(stmt.net_income / stmt.revenue * 100, 2) if stmt.net_income else 0
+            analysis.net_margin = (
+                round(stmt.net_income / stmt.revenue * 100, 2) if stmt.net_income is not None else None
+            )
         if stmt.equity:
-            analysis.roe = round(stmt.net_income / stmt.equity * 100, 2) if stmt.net_income else 0
+            analysis.roe = round(stmt.net_income / stmt.equity * 100, 2) if stmt.net_income is not None else None
         if stmt.total_assets:
-            analysis.roa = round(stmt.net_income / stmt.total_assets * 100, 2) if stmt.net_income else 0
+            analysis.roa = round(stmt.net_income / stmt.total_assets * 100, 2) if stmt.net_income is not None else None
             analysis.debt_ratio = (
-                round(stmt.total_liabilities / stmt.total_assets * 100, 2) if stmt.total_liabilities else 0
+                round(stmt.total_liabilities / stmt.total_assets * 100, 2)
+                if stmt.total_liabilities is not None
+                else None
             )
+        logger.info(
+            "calculate_metrics: company=%s period=%s gross_margin=%s net_margin=%s roe=%s",
+            stmt.company,
+            stmt.period,
+            analysis.gross_margin,
+            analysis.net_margin,
+            analysis.roe,
+        )
         return analysis
 
     async def analyze_statements(self, company: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -88,8 +102,15 @@ class StatementAnalyzer:
     def validate_balance_sheet(self, statements: list[FinancialStatement]) -> list[str]:
         issues = []
         for stmt in statements:
-            if stmt.total_assets and stmt.total_liabilities is not None and stmt.equity is not None:
+            if stmt.total_assets is not None and stmt.total_liabilities is not None and stmt.equity is not None:
                 diff = abs(stmt.total_assets - stmt.total_liabilities - stmt.equity)
-                if diff > 0.01 * stmt.total_assets:
-                    issues.append(f"{stmt.period}: 资产负债表不平衡")
+                tolerance = max(0.01, abs(stmt.total_assets) * 0.01)
+                if diff > tolerance:
+                    issues.append(f"{stmt.period}: 资产负债表不平衡 (diff={diff:.4f}, tolerance={tolerance:.4f})")
+                    logger.warning(
+                        "Balance sheet imbalance: company=%s period=%s diff=%.4f",
+                        stmt.company,
+                        stmt.period,
+                        diff,
+                    )
         return issues

@@ -17,6 +17,10 @@ class DataAdapter:
         self.validator = DataValidator()
         self.cache = DataCache(max_size=cache_max, default_ttl=cache_ttl)
 
+    @staticmethod
+    def _build_key(source: str | Path, delimiter: str = "", encoding: str = "", has_header: bool = True) -> str:
+        return DataCache.make_key("csv", str(source), delimiter, encoding, has_header)
+
     def load_csv(
         self,
         source: str | Path,
@@ -25,7 +29,7 @@ class DataAdapter:
         has_header: bool = True,
         required_fields: list[str] | None = None,
     ) -> dict[str, Any]:
-        cache_key = DataCache.make_key("csv", str(source), delimiter, encoding, has_header)
+        cache_key = self._build_key(source, delimiter, encoding, has_header)
         cached = self.cache.get(cache_key)
         if cached is not None:
             logger.info("CSV cache hit: %s", source)
@@ -67,9 +71,12 @@ class DataAdapter:
         overall = sum(scores.values()) / len(scores) if scores else 0.0
         return {"field_completeness": scores, "overall_score": overall}
 
-    def invalidate(self, source: str) -> None:
-        cache_key = DataCache.make_key("csv", source)
-        self.cache.invalidate(cache_key)
+    def invalidate(self, source: str | Path, delimiter: str = "", encoding: str = "", has_header: bool = True) -> None:
+        cache_key = self._build_key(source, delimiter, encoding, has_header)
+        if self.cache.invalidate(cache_key):
+            logger.info("CSV cache invalidated: %s", source)
+        else:
+            logger.warning("CSV cache invalidate: no entry for %s", source)
 
     def clear_cache(self) -> None:
         self.cache.clear()

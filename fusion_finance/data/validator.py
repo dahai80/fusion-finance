@@ -41,26 +41,37 @@ class DataValidator:
     def validate_balance_sheet(
         self, assets: float, liabilities: float, equity: float, tolerance: float = 0.01
     ) -> tuple[bool, str]:
+        if assets is None or liabilities is None or equity is None:
+            return (False, "Balance sheet validation skipped: missing values")
         diff = abs(assets - liabilities - equity)
-        if diff <= tolerance * max(abs(assets), 1):
+        tol = max(0.01, abs(assets) * 0.01) if tolerance == 0.01 else tolerance
+        if diff <= tol:
             return (True, "Balance sheet balanced")
         return (
             False,
             f"Balance sheet imbalance: assets({assets}) != liabilities({liabilities}) + equity({equity}), diff={diff:.4f}",
         )
 
-    def sanitize_numeric(self, value: Any, default: float = 0.0) -> float:
+    def sanitize_numeric(self, value: Any, default: float | None = 0.0) -> float | None:
         if value is None:
             return default
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, str):
             cleaned = value.replace(",", "").replace("$", "").replace(" ", "").replace("(", "-").replace(")", "")
+            if cleaned == "":
+                return default
             try:
                 return float(cleaned)
             except ValueError:
-                logger.warning("Cannot parse numeric value: %s, using default %.2f", value, default)
+                logger.warning("sanitize_numeric: cannot parse %r; returning default %r", value, default)
                 return default
+        logger.warning(
+            "sanitize_numeric: unsupported type %s for value %r; returning default %r",
+            type(value).__name__,
+            value,
+            default,
+        )
         return default
 
     def check_completeness(

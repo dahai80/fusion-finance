@@ -6,12 +6,39 @@ PID_FILE="$SCRIPT_DIR/.fusion-finance.pid"
 HOST="${FUSION_FINANCE_HOST:-0.0.0.0}"
 PORT="${FUSION_FINANCE_PORT:-11466}"
 LOG_FILE="$SCRIPT_DIR/.fusion-finance.log"
+LOG_MAX_BYTES=$((10 * 1024 * 1024))
+LOG_KEEP=3
+
+rotate_log() {
+    if [ ! -f "$LOG_FILE" ]; then
+        return 0
+    fi
+    local size
+    size=$(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$size" -lt "$LOG_MAX_BYTES" ]; then
+        return 0
+    fi
+    echo "Rotating $LOG_FILE (size=${size}B)..."
+    local i="$LOG_KEEP"
+    while [ "$i" -gt 1 ]; do
+        local prev=$((i - 1))
+        if [ -f "${LOG_FILE}.${prev}" ]; then
+            mv -f "${LOG_FILE}.${prev}" "${LOG_FILE}.${i}"
+        fi
+        i=$((i - 1))
+    done
+    if [ -f "$LOG_FILE" ]; then
+        mv -f "$LOG_FILE" "${LOG_FILE}.1"
+    fi
+    rm -f "${LOG_FILE}.$((LOG_KEEP + 1))" 2>/dev/null || true
+}
 
 start() {
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
         echo "Fusion-Finance already running (PID $(cat "$PID_FILE"))"
         return 0
     fi
+    rotate_log
     echo "Starting Fusion-Finance API on ${HOST}:${PORT}..."
     nohup python -m uvicorn fusion_finance.api.app:app \
         --host "$HOST" \

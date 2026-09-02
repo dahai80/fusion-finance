@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import logging
+from xml.sax.saxutils import escape
 
 logger = logging.getLogger(__name__)
+
+
+def _esc(s: str) -> str:
+    return escape(str(s))
+
 
 SVG_WIDTH = 800
 SVG_HEIGHT = 500
@@ -12,7 +18,7 @@ MARGIN = {"top": 40, "right": 30, "bottom": 60, "left": 70}
 def _svg_wrap(content: str, width: int = 0, height: int = 0, title: str = "") -> str:
     w = width or SVG_WIDTH
     h = height or SVG_HEIGHT
-    title_el = f"<title>{title}</title>" if title else ""
+    title_el = f"<title>{_esc(title)}</title>" if title else ""
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
         f'viewBox="0 0 {w} {h}">\n{title_el}\n'
@@ -70,12 +76,12 @@ def render_waterfall(categories: list[str], values: list[float], title: str = "B
         )
         label_x = pa["x"] + i * gap + gap / 2
         elements.append(
-            f'<text x="{label_x:.1f}" y="{pa["y"] + pa["h"] + 20:.1f}" fill="#ccc" text-anchor="middle" font-size="10">{bar["category"]}</text>'
+            f'<text x="{label_x:.1f}" y="{pa["y"] + pa["h"] + 20:.1f}" fill="#ccc" text-anchor="middle" font-size="10">{_esc(bar["category"])}</text>'
         )
         val_label = f"+{bar['value']:.1f}" if bar["value"] >= 0 else f"{bar['value']:.1f}"
         elements.append(
             f'<text x="{label_x:.1f}" y="{y_top - 5:.1f}" fill="#eee" text-anchor="middle" font-size="10">{val_label}</text>'
         )
 
-    title_svg = f'<text x="{SVG_WIDTH / 2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{title}</text>'
+    title_svg = f'<text x="{SVG_WIDTH / 2:.1f}" y="24" fill="#eee" text-anchor="middle" font-size="16" font-weight="bold">{_esc(title)}</text>'
     return _svg_wrap(title_svg + "\n" + "\n".join(elements), title=title)

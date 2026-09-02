@@ -8,10 +8,11 @@ from typing import Any
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from ...config import CACHE_DIR
+from ...config import CACHE_DIR, MAX_LIST_LENGTH, MAX_UPLOAD_BYTES
 from ...data import DataAdapter
 from ...data.market_feed import MarketDataAdapter
 from ...exceptions import DataError
+from ...utils.safe_path import safe_join, sanitize_name
 
 logger = logging.getLogger(__name__)
 
@@ -37,23 +38,51 @@ class ValidateBalanceRequest(BaseModel):
 
 
 class CompletenessRequest(BaseModel):
-    data: list[dict[str, Any]] = Field(default_factory=list)
+    data: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
     required_fields: list[str] | None = None
 
 
 @router.post("/import", summary="导入CSV数据")
 async def import_data(file: UploadFile = File(default=...)):
     try:
-        filename = file.filename or "data.csv"
-        content = await file.read()
+        content_type = file.content_type or ""
+        if (
+            content_type
+            and "csv" not in content_type
+            and "text" not in content_type
+            and "octet-stream" not in content_type
+        ):
+            logger.warning("Import received non-csv content-type: %s", content_type)
+
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_UPLOAD_BYTES:
+                logger.warning("Import rejected: upload exceeds %d bytes", MAX_UPLOAD_BYTES)
+                raise HTTPException(status_code=413, detail="上传文件过大")
+            chunks.append(chunk)
+        content = b"".join(chunks)
         text = content.decode("utf-8-sig")
 
         result = _adapter.load_csv(text)
-        key = f"csv_{int(time.time())}_{filename}"
+
+        raw_name = file.filename or "data.csv"
+        safe_name = sanitize_name(raw_name, fallback="data.csv")
+        if not safe_name.endswith(".csv"):
+            safe_name = f"{safe_name}.csv"
+        key = f"csv_{int(time.time())}_{safe_name}"
+
+        target = safe_join(CACHE_DIR, f"{key}.json")
+        if target is None:
+            logger.warning("Import rejected unsafe filename: %s", raw_name)
+            raise DataError(message="unsafe filename", detail="invalid filename", field="filename")
 
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        data_path = CACHE_DIR / f"{key}.json"
-        data_path.write_text(json.dumps(result["data"], ensure_ascii=False), encoding="utf-8")
+        target.write_text(json.dumps(result["data"], ensure_ascii=False), encoding="utf-8")
 
         preview = result["data"][:10]
         columns = list(result["data"][0].keys()) if result["data"] else []
@@ -65,11 +94,15 @@ async def import_data(file: UploadFile = File(default=...)):
             valid_rows=result["valid_rows"],
             preview=preview,
         )
+    except HTTPException:
+        raise
     except UnicodeDecodeError:
+        logger.warning("Import failed: non-utf8 encoding")
         raise HTTPException(status_code=400, detail="文件编码不支持，请使用UTF-8编码的CSV")
     except DataError:
         raise
     except Exception as e:
+        logger.error("import_data failed: %s", e)
         raise DataError(message="import_data failed", detail=str(e), field="import_data")
 
 
@@ -81,6 +114,7 @@ async def validate_balance(req: ValidateBalanceRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("validate_balance failed: %s", e)
         raise DataError(message="validate_balance failed", detail=str(e), field="validate_balance")
 
 
@@ -92,6 +126,7 @@ async def check_completeness(req: CompletenessRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("check_completeness failed: %s", e)
         raise DataError(message="check_completeness failed", detail=str(e), field="check_completeness")
 
 
@@ -115,16 +150,20 @@ async def list_cache():
     except DataError:
         raise
     except Exception as e:
+        logger.error("list_cache failed: %s", e)
         raise DataError(message="list_cache failed", detail=str(e), field="list_cache")
 
 
 @router.delete("/cache/{key}", summary="删除缓存项")
 async def delete_cache(key: str):
     try:
-        data_path = CACHE_DIR / f"{key}.json"
-        if not data_path.exists():
+        if "/" in key or "\\" in key or ".." in key or not key:
+            logger.warning("delete_cache rejected unsafe key: %s", key)
+            raise HTTPException(status_code=400, detail="非法缓存键")
+        target = safe_join(CACHE_DIR, f"{key}.json")
+        if target is None or not target.exists():
             raise HTTPException(status_code=404, detail="缓存项不存在")
-        data_path.unlink()
+        target.unlink()
         logger.info("Deleted cache: %s", key)
         return {"deleted": key}
     except HTTPException:
@@ -132,6 +171,7 @@ async def delete_cache(key: str):
     except DataError:
         raise
     except Exception as e:
+        logger.error("delete_cache failed: %s", e)
         raise DataError(message="delete_cache failed", detail=str(e), field="delete_cache")
 
 
@@ -146,7 +186,7 @@ class OHLCVRequest(BaseModel):
 
 
 class TechnicalsRequest(BaseModel):
-    ohlcv: list[dict[str, Any]] = Field(default_factory=list)
+    ohlcv: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_LIST_LENGTH)
 
 
 @router.get("/market/quotes", summary="获取模拟行情报价")
@@ -157,6 +197,7 @@ async def market_quotes(market: str = "A"):
     except DataError:
         raise
     except Exception as e:
+        logger.error("market_quotes failed: %s", e)
         raise DataError(message="market_quotes failed", detail=str(e), field="market_quotes")
 
 
@@ -168,6 +209,7 @@ async def market_ohlcv(req: OHLCVRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("market_ohlcv failed: %s", e)
         raise DataError(message="market_ohlcv failed", detail=str(e), field="market_ohlcv")
 
 
@@ -179,4 +221,5 @@ async def market_technicals(req: TechnicalsRequest):
     except DataError:
         raise
     except Exception as e:
+        logger.error("market_technicals failed: %s", e)
         raise DataError(message="market_technicals failed", detail=str(e), field="market_technicals")
