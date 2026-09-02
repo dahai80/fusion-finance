@@ -265,13 +265,23 @@ def _schema_to_prompt(schema: dict[str, Any]) -> str:
 
 
 class ToolRegistry:
-    def __init__(self):
+    def __init__(self, mlx: Any = None):
         self._tools: dict[str, Callable] = {}
         self._selectable: dict[str, bool] = {}
         self._definitions: list[dict[str, Any]] = list(TOOL_DEFINITIONS)
         self._frozen = False
+        self._mlx = mlx
         self._register_defaults()
         self._frozen = True
+
+    def _get_mlx(self) -> Any:
+        if self._mlx is not None:
+            return self._mlx
+        from ..ai_client import MLXClient
+
+        self._mlx = MLXClient()
+        logger.debug("ToolRegistry created ephemeral MLXClient for AI tools")
+        return self._mlx
 
     def _register_defaults(self):
         self.register("build_dcf", self._build_dcf)
@@ -315,6 +325,10 @@ class ToolRegistry:
         lines.append("```json")
         lines.append('{"tool": "工具名", "args": {参数}}')
         lines.append("```")
+        lines.append("如需一次调用多个独立工具，请回复批量格式:")
+        lines.append("```json")
+        lines.append('{"tool_calls": [{"tool": "工具名", "args": {参数}}, ...]}')
+        lines.append("```")
         lines.append("如果不需要调用工具，直接回复用户问题。")
         return "\n".join(lines)
 
@@ -356,6 +370,7 @@ class ToolRegistry:
             if not spec:
                 continue
             self._check_type(key, value, spec.get("type"))
+            self._check_item_type(key, value, spec.get("items"))
 
     @staticmethod
     def _check_type(key: str, value: Any, expected: str | None) -> None:
@@ -374,11 +389,20 @@ class ToolRegistry:
         if not isinstance(value, allowed):
             raise TypeError(f"parameter {key!r} expected {expected}, got {type(value).__name__}")
 
+    @classmethod
+    def _check_item_type(cls, key: str, value: Any, items_spec: dict[str, Any] | None) -> None:
+        if not items_spec or not isinstance(value, (list, tuple)):
+            return
+        item_type = items_spec.get("type")
+        if not item_type:
+            return
+        for i, item in enumerate(value):
+            cls._check_type(f"{key}[{i}]", item, item_type)
+
     async def _build_dcf(self, args: dict[str, Any]) -> Any:
-        from ..ai_client import MLXClient
         from ..modeling.engine import FinancialModelingEngine
 
-        mlx = MLXClient()
+        mlx = self._get_mlx()
         engine = FinancialModelingEngine(mlx)
         model = await engine.build_dcf(args.get("company", ""), args.get("revenue", []))
         return asdict(model)
@@ -395,10 +419,9 @@ class ToolRegistry:
         return model.calculate()
 
     async def _build_comps(self, args: dict[str, Any]) -> Any:
-        from ..ai_client import MLXClient
         from ..modeling.engine import FinancialModelingEngine
 
-        mlx = MLXClient()
+        mlx = self._get_mlx()
         engine = FinancialModelingEngine(mlx)
         comps = await engine.build_comps(args.get("company", ""), args.get("industry", ""))
         return asdict(comps)
@@ -430,19 +453,17 @@ class ToolRegistry:
         return await engine.monte_carlo(model, args.get("simulations", 1000))
 
     async def _kyc(self, args: dict[str, Any]) -> Any:
-        from ..ai_client import MLXClient
         from ..risk.engine import RiskComplianceEngine
 
-        mlx = MLXClient()
+        mlx = self._get_mlx()
         engine = RiskComplianceEngine(mlx)
         result = await engine.kyc_screening(args.get("entity", ""), args.get("jurisdiction", "CN"))
         return asdict(result)
 
     async def _credit(self, args: dict[str, Any]) -> Any:
-        from ..ai_client import MLXClient
         from ..risk.engine import RiskComplianceEngine
 
-        mlx = MLXClient()
+        mlx = self._get_mlx()
         engine = RiskComplianceEngine(mlx)
         result = await engine.credit_assessment(args.get("entity", ""), args.get("financials", {}))
         return asdict(result)

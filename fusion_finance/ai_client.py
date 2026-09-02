@@ -108,7 +108,7 @@ class MLXClient:
         err_msg = f"chat all retries exhausted: {last_err}"
         logger.error(err_msg)
         self.last_error = str(last_err) if last_err else "unknown"
-        return ""
+        raise AIClientError(message="chat retries exhausted", detail=self.last_error, provider=self.base_url)
 
     async def _chat_httpx(
         self,

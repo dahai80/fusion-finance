@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from ..ai_client import MLXClient
 from ..config import DEFAULT_PORT, ensure_dirs, get_api_key, get_cors_origins, setup_logging
+from ..copilot import CopilotEngine
 from ..exceptions import AIClientError, DataError, FinanceError, ModelError, ReportError, RiskError
 from .middleware import APIKeyMiddleware, AuditMiddleware, RateLimitMiddleware
 from .routes import audit, chart, copilot, dashboard, data, health, modeling, project, report, risk, statements, ws
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     ensure_dirs()
     app.state.port = getattr(app.state, "port", DEFAULT_PORT)
     app.state.mlx_client = MLXClient()
+    app.state.copilot_engine = CopilotEngine(app.state.mlx_client)
     logger.info("Fusion-Finance API started on port %s", app.state.port)
     yield
     try:

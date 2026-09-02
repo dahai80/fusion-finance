@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -18,7 +19,7 @@ class AuditRecordRequest(BaseModel):
     user: str
     action: str
     module: str
-    details: str = ""
+    details: Any = ""
     status: str = "success"
     duration_ms: float = 0.0
 
@@ -102,7 +103,7 @@ async def query_audit(req: AuditQueryRequest, request: Request):
 async def audit_stats(request: Request):
     _require_auth(request)
     try:
-        return _audit.get_stats()
+        return _audit.get_stats_from_file()
     except Exception as e:
         logger.error("audit_stats failed: %s", e)
         raise HTTPException(status_code=500, detail="internal error")

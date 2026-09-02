@@ -3,14 +3,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from ...ai_client import MLXClient
 from ...exceptions import FinanceError
 from ...modeling.engine import DCFModel
 from ...modeling.scenarios import ScenarioManager
 from ...statements.screener import FinancialScreener
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +88,8 @@ async def market_dashboard(preset: str = "quality", limit: int = 5):
 
 
 @router.get("/status", summary="服务状态概览")
-async def service_status():
+async def service_status(client=Depends(get_mlx_client)):
     try:
-        client = MLXClient()
         health = await client.health_check()
         mlx_status = "connected" if health.get("status") == "ok" else "error"
         models = health.get("models", [])

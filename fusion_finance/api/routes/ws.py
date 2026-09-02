@@ -5,9 +5,9 @@ import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from ...ai_client import MLXClient
 from ...config import get_api_key
 from ...copilot import CopilotEngine
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,10 @@ async def ws_copilot(websocket: WebSocket):
     await websocket.accept()
     session_id = None
     try:
-        mlx = MLXClient()
-        engine = CopilotEngine(mlx)
+        engine = getattr(websocket.app.state, "copilot_engine", None)
+        if engine is None:
+            engine = CopilotEngine(get_mlx_client(websocket))
+            websocket.app.state.copilot_engine = engine
         logger.info("WebSocket copilot session started")
 
         while True:
@@ -79,9 +81,7 @@ async def ws_copilot(websocket: WebSocket):
 
             try:
                 async for chunk in engine.chat_stream(user_message, session_id=session_id):
-                    if session_id is None:
-                        session_id = chunk.get("session_id")
-                    await websocket.send_json(chunk)
+                    await websocket.send_json({"type": "chunk", "content": chunk})
                 await websocket.send_json({"type": "done"})
             except Exception as e:
                 logger.error("copilot stream error: %s", e)

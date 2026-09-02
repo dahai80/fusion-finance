@@ -3,16 +3,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from ...ai_client import MLXClient
 from ...config import EXPORT_DIR, MAX_LIST_LENGTH
 from ...exceptions import DataError, FinanceError, ReportError
 from ...modeling.engine import CompsAnalysis, DCFModel
 from ...report.formatter import SUPPORTED_FORMATS, ReportFormatter
 from ...report.reports import ReportGenerator
 from ...utils.safe_path import safe_join, sanitize_name
+from ..dependencies import get_mlx_client
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +56,6 @@ class ExportRequest(BaseModel):
     template_name: str = ""
     template_data: dict[str, Any] | None = None
     name: str = ""
-
-
-def _get_mlx() -> MLXClient:
-    return MLXClient()
 
 
 def _build_dcf_from_req(req) -> DCFModel:
@@ -116,9 +112,9 @@ async def generate_pitchbook(req: PitchbookRequest):
 
 
 @router.post("/research", summary="AI生成深度投研报告")
-async def generate_research_report(req: ResearchReportRequest):
+async def generate_research_report(req: ResearchReportRequest, mlx=Depends(get_mlx_client)):
     try:
-        generator = ReportGenerator(_get_mlx())
+        generator = ReportGenerator(mlx)
         content = await generator.generate_research_report(req.company, req.industry, req.data)
         return {"company": req.company, "content": content, "format": "markdown"}
     except ReportError:

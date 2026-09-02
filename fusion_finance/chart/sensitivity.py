@@ -1,50 +1,32 @@
 from __future__ import annotations
 
 import logging
-from xml.sax.saxutils import escape
+
+from ..exceptions import FinanceError
+from ._common import MAX_CELLS, SVG_WIDTH, _empty_svg, _esc, _plot_area, _svg_wrap
 
 logger = logging.getLogger(__name__)
-
-
-def _esc(s: str) -> str:
-    return escape(str(s))
-
-
-SVG_WIDTH = 800
-SVG_HEIGHT = 500
-MARGIN = {"top": 40, "right": 30, "bottom": 60, "left": 70}
-
-
-def _svg_wrap(content: str, width: int = 0, height: int = 0, title: str = "") -> str:
-    w = width or SVG_WIDTH
-    h = height or SVG_HEIGHT
-    title_el = f"<title>{_esc(title)}</title>" if title else ""
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
-        f'viewBox="0 0 {w} {h}">\n{title_el}\n'
-        f'<rect width="{w}" height="{h}" fill="#1a1a2e"/>\n{content}\n</svg>'
-    )
-
-
-def _plot_area() -> dict[str, float]:
-    m = MARGIN
-    return {
-        "x": m["left"],
-        "y": m["top"],
-        "w": SVG_WIDTH - m["left"] - m["right"],
-        "h": SVG_HEIGHT - m["top"] - m["bottom"],
-    }
 
 
 def render_sensitivity_tornado(
     base_value: float, sensitivities: dict[str, list[float]], title: str = "Tornado Chart"
 ) -> str:
     if not sensitivities:
-        return _svg_wrap('<text x="400" y="250" fill="#888" text-anchor="middle">No data</text>', title=title)
+        return _empty_svg(title)
+
+    n = len(sensitivities)
+    if n > MAX_CELLS:
+        logger.warning("sensitivity cell budget exceeded: %d > %d", n, MAX_CELLS)
+        raise FinanceError(message="chart cell budget exceeded", detail=f"sensitivity {n} factors > {MAX_CELLS}")
+    for label, vals in sensitivities.items():
+        if not isinstance(vals, list) or len(vals) != 2:
+            raise FinanceError(
+                message="chart input dimension mismatch",
+                detail=f"sensitivity {label!r} must have exactly 2 values [low, high], got {vals!r}",
+            )
 
     pa = _plot_area()
     items = sorted(sensitivities.items(), key=lambda x: abs(x[1][1] - x[1][0]), reverse=True)
-    n = len(items)
     bar_h = pa["h"] / n * 0.6
     gap = pa["h"] / n
 

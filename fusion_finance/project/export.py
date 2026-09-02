@@ -8,10 +8,15 @@ from pathlib import Path
 from typing import Any
 
 from ..config import EXPORT_DIR
+from ..exceptions import FinanceError
 from ..utils.safe_path import safe_join, sanitize_name
 from .manager import Project, ProjectManager
 
 logger = logging.getLogger(__name__)
+
+_MAX_ENTRY_BYTES = 50 * 1024 * 1024
+_MAX_TOTAL_BYTES = 500 * 1024 * 1024
+_MAX_VERSION_COUNT = 1000
 
 
 class ProjectExporter:
@@ -50,9 +55,18 @@ class ProjectExporter:
             with zipfile.ZipFile(str(path), "w", zipfile.ZIP_DEFLATED) as zf:
                 data = self._project_to_dict(proj)
                 zf.writestr("project.json", json.dumps(data, ensure_ascii=False, indent=2, default=str))
-                for i, v in enumerate(proj.versions):
-                    version_json = json.dumps(v, ensure_ascii=False, indent=2, default=str)
-                    zf.writestr(f"versions/v{v.get('version', i + 1)}.json", version_json)
+                for v in proj.versions:
+                    vnum = v.get("version", 0)
+                    if vnum <= 0:
+                        continue
+                    vdata = self.manager.get_version_data(project_id, vnum)
+                    version_json = json.dumps(
+                        {"version": vnum, "label": v.get("label", ""), "data": vdata},
+                        ensure_ascii=False,
+                        indent=2,
+                        default=str,
+                    )
+                    zf.writestr(f"versions/v{vnum}.json", version_json)
                 if proj.current_data:
                     zf.writestr(
                         "current_data.json", json.dumps(proj.current_data, ensure_ascii=False, indent=2, default=str)
@@ -91,6 +105,27 @@ class ProjectExporter:
                 if "project.json" not in zf.namelist():
                     logger.error("Invalid project ZIP: missing project.json")
                     return None
+                total_bytes = 0
+                version_files = sorted([f for f in zf.namelist() if f.startswith("versions/") and f.endswith(".json")])
+                if len(version_files) > _MAX_VERSION_COUNT:
+                    logger.error("ZIP version count %d exceeds cap %d", len(version_files), _MAX_VERSION_COUNT)
+                    raise FinanceError(
+                        message="zip import version count exceeded",
+                        detail=f"{len(version_files)} > {_MAX_VERSION_COUNT}",
+                    )
+                for info in zf.infolist():
+                    if info.file_size > _MAX_ENTRY_BYTES:
+                        logger.error(
+                            "ZIP entry %s size %d exceeds cap %d", info.filename, info.file_size, _MAX_ENTRY_BYTES
+                        )
+                        raise FinanceError(
+                            message="zip import entry size exceeded",
+                            detail=f"{info.filename} {info.file_size} > {_MAX_ENTRY_BYTES}",
+                        )
+                    total_bytes += info.file_size
+                    if total_bytes > _MAX_TOTAL_BYTES:
+                        logger.error("ZIP total decompressed size exceeds cap %d", _MAX_TOTAL_BYTES)
+                        raise FinanceError(message="zip import total size exceeded", detail=f">{_MAX_TOTAL_BYTES}")
                 data = json.loads(zf.read("project.json"))
                 name = data.get("name", resolved.stem)
                 description = data.get("description", f"Imported from {resolved.name}")
@@ -98,12 +133,13 @@ class ProjectExporter:
                 if "current_data.json" in zf.namelist():
                     cur = json.loads(zf.read("current_data.json"))
                     self.manager.update(proj.id, data=cur)
-                version_files = sorted([f for f in zf.namelist() if f.startswith("versions/") and f.endswith(".json")])
                 for vf in version_files:
                     vdata = json.loads(zf.read(vf))
                     self.manager.snapshot(proj.id, label=vdata.get("label", ""), data=vdata.get("data", {}))
                 logger.info("Imported project from ZIP %s: id=%s", resolved, proj.id)
                 return proj.id
+        except FinanceError:
+            raise
         except Exception as e:
             logger.error("ZIP import failed for %s: %s", resolved, e)
             return None
@@ -138,4 +174,5 @@ class ProjectExporter:
             "updated_at": proj.updated_at,
             "current_data": proj.current_data,
             "versions": proj.versions,
+            "version": proj.version,
         }

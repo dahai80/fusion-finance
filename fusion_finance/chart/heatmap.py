@@ -1,50 +1,39 @@
 from __future__ import annotations
 
 import logging
-from xml.sax.saxutils import escape
+
+from ..exceptions import FinanceError
+from ._common import MAX_CELLS, SVG_WIDTH, _empty_svg, _esc, _plot_area, _svg_wrap
 
 logger = logging.getLogger(__name__)
-
-
-def _esc(s: str) -> str:
-    return escape(str(s))
-
-
-SVG_WIDTH = 800
-SVG_HEIGHT = 500
-MARGIN = {"top": 40, "right": 30, "bottom": 60, "left": 70}
-
-
-def _svg_wrap(content: str, width: int = 0, height: int = 0, title: str = "") -> str:
-    w = width or SVG_WIDTH
-    h = height or SVG_HEIGHT
-    title_el = f"<title>{_esc(title)}</title>" if title else ""
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
-        f'viewBox="0 0 {w} {h}">\n{title_el}\n'
-        f'<rect width="{w}" height="{h}" fill="#1a1a2e"/>\n{content}\n</svg>'
-    )
-
-
-def _plot_area() -> dict[str, float]:
-    m = MARGIN
-    return {
-        "x": m["left"],
-        "y": m["top"],
-        "w": SVG_WIDTH - m["left"] - m["right"],
-        "h": SVG_HEIGHT - m["top"] - m["bottom"],
-    }
 
 
 def render_heatmap(
     matrix: list[list[float]], row_labels: list[str], col_labels: list[str], title: str = "Sensitivity Matrix"
 ) -> str:
     if not matrix or not matrix[0]:
-        return _svg_wrap('<text x="400" y="250" fill="#888" text-anchor="middle">No data</text>', title=title)
+        return _empty_svg(title)
 
-    pa = _plot_area()
     rows = len(matrix)
     cols = len(matrix[0])
+    if rows * cols > MAX_CELLS:
+        logger.warning("heatmap cell budget exceeded: %d x %d = %d", rows, cols, rows * cols)
+        raise FinanceError(message="chart cell budget exceeded", detail=f"heatmap {rows}x{cols} > {MAX_CELLS}")
+    for i, row in enumerate(matrix):
+        if len(row) != cols:
+            raise FinanceError(
+                message="chart input dimension mismatch", detail=f"heatmap row {i} length {len(row)} != {cols}"
+            )
+    if row_labels and len(row_labels) != rows:
+        raise FinanceError(
+            message="chart input dimension mismatch", detail=f"row_labels length {len(row_labels)} != {rows}"
+        )
+    if col_labels and len(col_labels) != cols:
+        raise FinanceError(
+            message="chart input dimension mismatch", detail=f"col_labels length {len(col_labels)} != {cols}"
+        )
+
+    pa = _plot_area()
     cell_w = pa["w"] / cols
     cell_h = pa["h"] / rows
 
