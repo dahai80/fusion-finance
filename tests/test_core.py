@@ -174,9 +174,25 @@ class TestReportGenerator:
 
     @pytest.mark.asyncio
     async def test_research_report(self):
-        gen = ReportGenerator()
+        from unittest.mock import MagicMock
+
+        mock_mlx = MagicMock()
+        mock_mlx.chat = AsyncMock(return_value="# Research Report\n\ncontent")
+        gen = ReportGenerator(mlx=mock_mlx)
         result = await gen.generate_research_report("Test", "科技", {"key": "value"})
         assert isinstance(result, str)
+
+    @pytest.mark.asyncio
+    async def test_research_report_ai_failure_raises(self):
+        from unittest.mock import MagicMock
+
+        from fusion_finance.exceptions import AIClientError
+
+        mock_mlx = MagicMock()
+        mock_mlx.chat = AsyncMock(side_effect=RuntimeError("mlx down"))
+        gen = ReportGenerator(mlx=mock_mlx)
+        with pytest.raises(AIClientError):
+            await gen.generate_research_report("Test", "科技", {"key": "value"})
 
 
 class TestMLXClient:
@@ -213,7 +229,7 @@ class TestModuleIntegrity:
     def test_import(self):
         import fusion_finance
 
-        assert fusion_finance.__version__ == "0.5.4"
+        assert fusion_finance.__version__ == "0.5.5"
 
     def test_cli_import(self):
         from fusion_finance import cli

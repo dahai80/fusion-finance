@@ -3,6 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="$SCRIPT_DIR/.fusion-finance.pid"
+VENV_PY="$SCRIPT_DIR/../.venv/bin/python"
+if [ -x "$VENV_PY" ]; then
+    PYTHON="$VENV_PY"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON="python3"
+else
+    PYTHON="python"
+fi
 HOST="${FUSION_FINANCE_HOST:-0.0.0.0}"
 PORT="${FUSION_FINANCE_PORT:-11466}"
 LOG_FILE="$SCRIPT_DIR/.fusion-finance.log"
@@ -40,7 +48,7 @@ start() {
     fi
     rotate_log
     echo "Starting Fusion-Finance API on ${HOST}:${PORT}..."
-    nohup python -m uvicorn fusion_finance.api.app:app \
+    nohup "$PYTHON" -m uvicorn fusion_finance.api.app:app \
         --host "$HOST" \
         --port "$PORT" \
         --log-level info \
@@ -81,7 +89,7 @@ status() {
         PID=$(cat "$PID_FILE")
         echo "✅ Fusion-Finance running (PID $PID)"
         echo "   API: http://${HOST}:${PORT}/docs"
-        curl -s "http://${HOST}:${PORT}/api/v1/ready" 2>/dev/null | python -m json.tool 2>/dev/null || echo "   (health check failed)"
+        curl -s "http://${HOST}:${PORT}/api/v1/ready" 2>/dev/null | "$PYTHON" -m json.tool 2>/dev/null || echo "   (health check failed)"
     else
         echo "❌ Fusion-Finance not running"
     fi
@@ -99,11 +107,36 @@ log() {
     fi
 }
 
+doctor() {
+    echo "🔍 Fusion-Finance doctor"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "   process: ✅ running (PID $(cat "$PID_FILE"))"
+    else
+        echo "   process: ❌ not running"
+    fi
+    ready_code=$(curl -s -o /dev/null -w "%{http_code}" "http://${HOST}:${PORT}/api/v1/ready" 2>/dev/null || echo "000")
+    if [ "$ready_code" = "200" ]; then
+        echo "   /ready:  ✅ ready (200)"
+    elif [ "$ready_code" = "503" ]; then
+        echo "   /ready:  ⚠️  degraded (503, MLX unreachable)"
+    else
+        echo "   /ready:  ❌ no response ($ready_code)"
+    fi
+    if [ -n "$FUSION_FINANCE_DISABLE_AUTH" ] && [ "$HOST" != "127.0.0.1" ] && [ "$HOST" != "localhost" ]; then
+        echo "   auth:    ❌ DISABLED on non-loopback ($HOST) — UNSAFE"
+    elif [ -n "$FUSION_FINANCE_DISABLE_AUTH" ]; then
+        echo "   auth:    ⚠️  disabled (loopback only)"
+    else
+        echo "   auth:    ✅ enabled"
+    fi
+}
+
 case "${1:-}" in
     start)   start ;;
     stop)    stop ;;
     restart) stop; sleep 1; start ;;
     status)  status ;;
+    doctor)  doctor ;;
     log)     log "${2:-}" ;;
-    *)       echo "Usage: $0 {start|stop|restart|status|log [-f]}" ;;
+    *)       echo "Usage: $0 {start|stop|restart|status|doctor|log [-f]}" ;;
 esac

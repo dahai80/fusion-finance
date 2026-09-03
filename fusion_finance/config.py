@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import json
 import logging
+import logging.handlers
 import os
 import secrets
 from pathlib import Path
@@ -63,6 +64,29 @@ def verify_api_key(provided: str) -> bool:
     return hmac.compare_digest(provided, configured)
 
 
+def is_auth_disabled() -> bool:
+    return os.getenv("FUSION_FINANCE_DISABLE_AUTH", "").lower() in ("1", "true", "yes")
+
+
+def is_loopback_host(host: str) -> bool:
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
+def auth_safety_check(host: str) -> list[str]:
+    warnings = []
+    if is_auth_disabled() and host not in ("127.0.0.1", "localhost", "::1"):
+        warnings.append(
+            "AUTH DISABLED (FUSION_FINANCE_DISABLE_AUTH) while binding non-loopback host "
+            f"{host} — this exposes all endpoints without authentication. "
+            "Refusing to start. Set FUSION_FINANCE_DISABLE_AUTH=0 or bind 127.0.0.1."
+        )
+    elif is_auth_disabled():
+        warnings.append(
+            "Auth disabled via FUSION_FINANCE_DISABLE_AUTH — only safe for local loopback use."
+        )
+    return warnings
+
+
 def get_cors_origins() -> list[str]:
     raw = os.getenv("FUSION_FINANCE_CORS_ORIGINS", "")
     if raw:
@@ -72,12 +96,24 @@ def get_cors_origins() -> list[str]:
 
 def setup_logging(level: str = "") -> None:
     lvl = (level or LOG_LEVEL).upper()
+    log_file = DATA_DIR / "fusion-finance.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.handlers.RotatingFileHandler(
+        log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+    )
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    )
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, lvl, logging.INFO))
+    if not any(isinstance(h, logging.handlers.RotatingFileHandler) for h in root.handlers):
+        root.addHandler(handler)
     logging.basicConfig(
         level=getattr(logging, lvl, logging.INFO),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    logger.info("Fusion-Finance logging initialized, level=%s", lvl)
+    logger.info("Fusion-Finance logging initialized, level=%s, file=%s", lvl, log_file)
 
 
 def ensure_dirs() -> None:

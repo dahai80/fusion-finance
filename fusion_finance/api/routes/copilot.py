@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from ...ai_client import MLXClient
 from ...copilot import CopilotEngine
+from ...exceptions import AIClientError
 from ..dependencies import get_copilot_engine, get_mlx_client
 
 logger = logging.getLogger(__name__)
@@ -46,8 +47,12 @@ async def chat(req: ChatRequest, engine: CopilotEngine = Depends(_engine)):
             rounds=result.get("rounds", 0),
             session_id=result.get("session_id", ""),
         )
+    except AIClientError:
+        raise
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("copilot chat failed: %s", e)
+        logger.error("copilot chat failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="internal error")
 
 
@@ -56,8 +61,10 @@ async def get_history(session_id: str, engine: CopilotEngine = Depends(_engine))
     try:
         messages = engine.get_history(session_id)
         return {"session_id": session_id, "messages": messages}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("copilot history failed: %s", e)
+        logger.error("copilot history failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="internal error")
 
 
@@ -66,6 +73,8 @@ async def list_sessions(engine: CopilotEngine = Depends(_engine)):
     try:
         sessions = engine.memory.list_sessions()
         return {"sessions": sessions, "total": len(sessions)}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("copilot list_sessions failed: %s", e)
+        logger.error("copilot list_sessions failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="internal error")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import logging
+import os
 import time
 from typing import Any
 
@@ -33,6 +34,12 @@ def _redact_query(query_str: str) -> str:
 
 
 class AuditMiddleware(BaseHTTPMiddleware):
+    def _resolve_user(self, request: Request) -> str:
+        api_key = request.headers.get("x-api-key", "") or request.headers.get("authorization", "")
+        if api_key:
+            return "api_client"
+        return "local"
+
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start = time.time()
         response = await call_next(request)
@@ -40,7 +47,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         try:
             audit = get_audit_trail()
-            user = request.headers.get("x-auth-user", "") or "anonymous"
+            user = self._resolve_user(request)
             query_redacted = _redact_query(str(request.query_params))
             await asyncio.to_thread(
                 audit.record,
@@ -65,15 +72,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self._counts: dict[str, list[float]] = {}
+        raw = os.getenv("FUSION_FINANCE_TRUSTED_PROXIES", "")
+        self._trusted_proxies = {p.strip() for p in raw.split(",") if p.strip()}
 
     def _is_exempt(self, path: str) -> bool:
         return any(path == p or (p.endswith("/") and path.startswith(p)) for p in self.EXEMPT_PATHS)
 
     def _key(self, request: Request) -> str:
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+        peer = request.client.host if request.client else "unknown"
+        if peer in self._trusted_proxies:
+            forwarded = request.headers.get("x-forwarded-for", "")
+            if forwarded:
+                return forwarded.split(",")[0].strip()
+        return peer
 
     def _check(self, key: str) -> bool:
         now = time.time()

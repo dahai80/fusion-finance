@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from collections import OrderedDict
@@ -12,6 +13,7 @@ MAX_HISTORY = 50
 MAX_SESSIONS = 100
 MAX_MESSAGE_CHARS = 8000
 MAX_SESSION_BYTES = 200_000
+MAX_SESSION_IDLE_SECONDS = 3600
 _TRUNCATED_SUFFIX = "...[truncated]"
 
 
@@ -31,80 +33,106 @@ class ConversationMemory:
         self._max_history = max_history or MAX_HISTORY
         self._max_sessions = max_sessions or MAX_SESSIONS
         self._sessions: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._lock = threading.Lock()
 
     def add_message(self, session_id: str, role: str, content: str) -> None:
-        if session_id not in self._sessions:
-            self._ensure_capacity()
-            self._sessions[session_id] = {
-                "messages": [],
-                "context": {},
-                "created_at": time.time(),
-                "byte_size": 0,
+        with self._lock:
+            if session_id not in self._sessions:
+                self._ensure_capacity()
+                self._sessions[session_id] = {
+                    "messages": [],
+                    "context": {},
+                    "created_at": time.time(),
+                    "last_active": time.time(),
+                    "byte_size": 0,
+                }
+            session = self._sessions[session_id]
+            session["last_active"] = time.time()
+            capped = _cap_content(content)
+            msg = {
+                "role": role,
+                "content": capped,
+                "timestamp": time.time(),
             }
-        session = self._sessions[session_id]
-        capped = _cap_content(content)
-        msg = {
-            "role": role,
-            "content": capped,
-            "timestamp": time.time(),
-        }
-        session["messages"].append(msg)
-        session["byte_size"] += len(capped.encode("utf-8", errors="replace"))
-        if len(session["messages"]) > self._max_history:
-            dropped = session["messages"].pop(0)
-            session["byte_size"] -= len(dropped["content"].encode("utf-8", errors="replace"))
-            if session["byte_size"] < 0:
-                session["byte_size"] = 0
-        self._enforce_session_byte_cap(session_id)
-        self._sessions.move_to_end(session_id)
+            session["messages"].append(msg)
+            session["byte_size"] += len(capped.encode("utf-8", errors="replace"))
+            if len(session["messages"]) > self._max_history:
+                dropped = session["messages"].pop(0)
+                session["byte_size"] -= len(dropped["content"].encode("utf-8", errors="replace"))
+                if session["byte_size"] < 0:
+                    session["byte_size"] = 0
+            self._enforce_session_byte_cap(session_id)
+            self._sessions.move_to_end(session_id)
 
     def get_messages(self, session_id: str, limit: int = 0) -> list[dict[str, str]]:
-        session = self._sessions.get(session_id)
-        if not session:
-            return []
-        msgs = session["messages"]
-        if limit:
-            msgs = msgs[-limit:]
-        return [{"role": m["role"], "content": m["content"]} for m in msgs]
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return []
+            session["last_active"] = time.time()
+            msgs = session["messages"]
+            if limit:
+                msgs = msgs[-limit:]
+            return [{"role": m["role"], "content": m["content"]} for m in msgs]
 
     def set_context(self, session_id: str, key: str, value: Any) -> None:
-        if session_id not in self._sessions:
-            self.add_message(session_id, "system", "session created")
-        self._sessions[session_id]["context"][key] = value
+        with self._lock:
+            if session_id not in self._sessions:
+                self._ensure_capacity()
+                self._sessions[session_id] = {
+                    "messages": [],
+                    "context": {},
+                    "created_at": time.time(),
+                    "last_active": time.time(),
+                    "byte_size": 0,
+                }
+                capped = _cap_content("session created")
+                self._sessions[session_id]["messages"].append(
+                    {"role": "system", "content": capped, "timestamp": time.time()}
+                )
+                self._sessions[session_id]["byte_size"] += len(capped.encode("utf-8", errors="replace"))
+            self._sessions[session_id]["context"][key] = value
+            self._sessions[session_id]["last_active"] = time.time()
 
     def get_context(self, session_id: str, key: str, default: Any = None) -> Any:
-        session = self._sessions.get(session_id)
-        if not session:
-            return default
-        return session["context"].get(key, default)
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return default
+            return session["context"].get(key, default)
 
     def get_full_context(self, session_id: str) -> dict[str, Any]:
-        session = self._sessions.get(session_id)
-        if not session:
-            return {}
-        return {
-            "messages": list(session["messages"]),
-            "context": dict(session["context"]),
-        }
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return {}
+            return {
+                "messages": list(session["messages"]),
+                "context": dict(session["context"]),
+            }
 
     def clear_session(self, session_id: str) -> bool:
-        if session_id in self._sessions:
-            del self._sessions[session_id]
-            return True
-        return False
+        with self._lock:
+            if session_id in self._sessions:
+                del self._sessions[session_id]
+                logger.info("cleared session %s", session_id)
+                return True
+            return False
 
     def list_sessions(self) -> list[dict[str, Any]]:
-        result = []
-        for sid, session in self._sessions.items():
-            result.append(
-                {
-                    "session_id": sid,
-                    "message_count": len(session["messages"]),
-                    "created_at": session.get("created_at", 0),
-                    "byte_size": session.get("byte_size", 0),
-                }
-            )
-        return result
+        with self._lock:
+            result = []
+            for sid, session in self._sessions.items():
+                result.append(
+                    {
+                        "session_id": sid,
+                        "message_count": len(session["messages"]),
+                        "created_at": session.get("created_at", 0),
+                        "last_active": session.get("last_active", 0),
+                        "byte_size": session.get("byte_size", 0),
+                    }
+                )
+            return result
 
     def _ensure_capacity(self) -> None:
         while len(self._sessions) >= self._max_sessions:
@@ -125,6 +153,17 @@ class ConversationMemory:
                 session_id,
                 MAX_SESSION_BYTES,
             )
+
+    def reap_idle(self) -> int:
+        cutoff = time.time() - MAX_SESSION_IDLE_SECONDS
+        reaped = 0
+        with self._lock:
+            for sid in [s for s, v in self._sessions.items() if v.get("last_active", 0) < cutoff]:
+                del self._sessions[sid]
+                reaped += 1
+        if reaped:
+            logger.info("reaped %d idle sessions", reaped)
+        return reaped
 
     @staticmethod
     def new_session_id() -> str:

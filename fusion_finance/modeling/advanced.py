@@ -28,6 +28,7 @@ class LBOModel:
     irr: float = 0.0
     moic: float = 0.0
     assumptions: dict[str, Any] = field(default_factory=dict)
+    ai_status: str = "success"
 
     def calculate(self) -> dict[str, float]:
         if not self.ebitda:
@@ -175,4 +176,6 @@ EBITDA预测: {ebitda}
             logger.error(f"LBO失败: {e}")
         model = LBOModel(company=company, ebitda=ebitda, purchase_price=sum(ebitda) * 8)
         model.calculate()
+        model.ai_status = "fallback"
+        logger.warning("build_lbo: AI failed, returning pure-math fallback model")
         return model

@@ -124,7 +124,14 @@ async def ws_modeling_progress(websocket: WebSocket):
 
             action = msg.get("action", "")
             if action == "subscribe":
-                await websocket.send_json({"type": "subscribed", "channel": msg.get("channel", "modeling")})
+                await websocket.send_json(
+                    {
+                        "type": "subscribed",
+                        "channel": msg.get("channel", "modeling"),
+                        "deprecated": True,
+                        "note": "progress push not implemented; use /ws/copilot for interactive modeling",
+                    }
+                )
             elif action == "ping":
                 await websocket.send_json({"type": "pong"})
             else:

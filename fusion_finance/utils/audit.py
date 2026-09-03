@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import logging
@@ -69,6 +70,7 @@ class AuditTrail:
     def __init__(self, log_path: str = ""):
         self.log_path = log_path or str(Path.home() / ".fusion" / "finance" / "audit.jsonl")
         Path(self.log_path).parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path = self.log_path + ".lock"
         self._entries: list[AuditEntry] = []
         self._corrupted_count = 0
 
@@ -128,7 +130,6 @@ class AuditTrail:
     def record(
         self, user: str, action: str, module: str, details: Any = "", status: str = "success", duration_ms: float = 0.0
     ) -> AuditEntry:
-        prev_hash = self._read_last_hash()
         entry = AuditEntry(
             timestamp=time.time(),
             user=user,
@@ -137,20 +138,32 @@ class AuditTrail:
             details=details,
             status=status,
             duration_ms=duration_ms,
-            prev_hash=prev_hash,
+            prev_hash="",
         )
         payload = _entry_payload(entry)
-        entry.cur_hash = _compute_cur_hash(prev_hash, payload)
+        try:
+            with open(self._lock_path, "w") as lockf:
+                fcntl.flock(lockf.fileno(), fcntl.LOCK_EX)
+                try:
+                    prev_hash = self._read_last_hash()
+                    entry.prev_hash = prev_hash
+                    payload = _entry_payload(entry)
+                    entry.cur_hash = _compute_cur_hash(prev_hash, payload)
+                    self._maybe_rotate()
+                    with open(self.log_path, "a") as f:
+                        record = {**payload, "cur_hash": entry.cur_hash}
+                        f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+                finally:
+                    fcntl.flock(lockf.fileno(), fcntl.LOCK_UN)
+        except OSError as e:
+            logger.error("Failed to acquire audit lock: %s", e)
+            entry.cur_hash = _compute_cur_hash("", payload)
+        except Exception as e:
+            logger.error("Failed to write audit entry: %s", e)
+            entry.cur_hash = entry.cur_hash or _compute_cur_hash("", payload)
         self._entries.append(entry)
         if len(self._entries) > _MAX_INMEMORY_ENTRIES:
             self._entries = self._entries[-_MAX_INMEMORY_ENTRIES:]
-        try:
-            self._maybe_rotate()
-            with open(self.log_path, "a") as f:
-                record = {**payload, "cur_hash": entry.cur_hash}
-                f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-        except Exception as e:
-            logger.error("Failed to write audit entry: %s", e)
         return entry
 
     def query(

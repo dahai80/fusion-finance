@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -9,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from .. import __version__
 from ..ai_client import MLXClient
-from ..config import DEFAULT_PORT, ensure_dirs, get_api_key, get_cors_origins, setup_logging
+from ..config import DEFAULT_PORT, auth_safety_check, ensure_dirs, get_api_key, get_cors_origins, setup_logging
 from ..copilot import CopilotEngine
 from ..exceptions import AIClientError, DataError, FinanceError, ModelError, ReportError, RiskError
 from .middleware import APIKeyMiddleware, AuditMiddleware, RateLimitMiddleware
@@ -26,6 +27,9 @@ async def lifespan(app: FastAPI):
     app.state.port = getattr(app.state, "port", DEFAULT_PORT)
     app.state.mlx_client = MLXClient()
     app.state.copilot_engine = CopilotEngine(app.state.mlx_client)
+    bind_host = getattr(app.state, "host", "127.0.0.1")
+    for w in auth_safety_check(bind_host):
+        logger.warning("startup auth warning: %s", w)
     logger.info("Fusion-Finance API started on port %s", app.state.port)
     yield
     try:
@@ -65,12 +69,13 @@ def create_app() -> FastAPI:
             status = 503
         detail = exc.safe_detail or exc.message or "internal error"
         logger.error(
-            "FinanceError handled: %s | type=%s | detail=%s", exc.message, error_type, exc.detail, exc_info=True
+            "FinanceError handled: %s | type=%s | detail=%s", exc.message, error_type, detail, exc_info=True
         )
         return JSONResponse(status_code=status, content={"error": error_type, "detail": detail})
 
     app.add_middleware(APIKeyMiddleware, api_key=get_api_key())
-    app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
+    rate_limit = int(os.getenv("FUSION_FINANCE_RATE_LIMIT", "100"))
+    app.add_middleware(RateLimitMiddleware, max_requests=rate_limit, window_seconds=60)
     app.add_middleware(AuditMiddleware)
     app.add_middleware(
         CORSMiddleware,

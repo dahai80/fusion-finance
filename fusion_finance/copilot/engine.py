@@ -148,9 +148,14 @@ class CopilotEngine:
                 break
 
             rounds += 1
-            results = await asyncio.gather(*[self.registry.execute(n, a) for n, a in pending])
+            results = await asyncio.gather(
+                *[self.registry.execute(n, a) for n, a in pending], return_exceptions=True
+            )
             all_messages.append({"role": "assistant", "content": response})
             for (tool_name, tool_args), tool_result in zip(pending, results):
+                if isinstance(tool_result, Exception):
+                    logger.error("Copilot tool %s failed: %s", tool_name, tool_result)
+                    tool_result = {"error": str(tool_result)}
                 logger.info("Copilot tool call: %s, args=%s", tool_name, tool_args)
                 tool_calls_log.append(
                     {
@@ -228,9 +233,14 @@ class CopilotEngine:
                     yield c
                 self.memory.add_message(session_id, "assistant", response)
                 return
-            results = await asyncio.gather(*[self.registry.execute(n, a) for n, a in pending])
+            results = await asyncio.gather(
+                *[self.registry.execute(n, a) for n, a in pending], return_exceptions=True
+            )
             all_messages.append({"role": "assistant", "content": response})
             for (tool_name, tool_args), tool_result in zip(pending, results):
+                if isinstance(tool_result, Exception):
+                    logger.error("chat_stream tool %s failed: %s", tool_name, tool_result)
+                    tool_result = {"error": str(tool_result)}
                 logger.info("chat_stream tool call: %s, args=%s", tool_name, tool_args)
                 tool_calls_log.append(
                     {

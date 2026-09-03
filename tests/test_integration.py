@@ -1730,7 +1730,10 @@ class TestReportFormatter:
         out = str(tmp_path / "report.pdf")
         result = fmt.export("<h1>PDF test</h1>", "pdf", output_path=out)
         assert EXPORT_DIR.resolve() in Path(result).resolve().parents
-        assert result.endswith(".html")
+        if fmt._weasyprint:
+            assert result.endswith(".pdf")
+        else:
+            assert result.endswith(".html")
         assert Path(result).exists()
 
     def test_export_xlsx_fallback_csv(self, tmp_path):

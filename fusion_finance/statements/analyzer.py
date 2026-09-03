@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..ai_client import MLXClient
+from ..exceptions import AIClientError
 from ..utils.parse_json import parse_json
 
 logger = logging.getLogger(__name__)
@@ -95,9 +96,10 @@ class StatementAnalyzer:
                 ],
                 temperature=0.1,
             )
-            return parse_json(response) or {"company": company}
+            return parse_json(response) or {"company": company, "ai_status": "fallback"}
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("analyze_statements AI failed: %s", e)
+            raise AIClientError(message="statement analysis AI failed", detail=str(e)) from e
 
     def validate_balance_sheet(self, statements: list[FinancialStatement]) -> list[str]:
         issues = []

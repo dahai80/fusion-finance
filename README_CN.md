@@ -22,6 +22,8 @@
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
+v0.5.5：**生产就绪加固** — 基于审计整改全部 P0-P3 问题（65 项）。P0：AI 失败现显式返回 `ai_status` 字段或抛出 `AIClientError`（不再静默伪造 200）；审计链以 `fcntl` 文件锁保护追加写入 + 服务端绑定操作者（防伪造）；`/ready` 在 MLX 降级时返回 503；鉴权关闭时启动 fail-fast 拒绝非回环绑定。P1：可信代理感知限流、日志脱敏 `safe_detail`、`RotatingFileHandler` 日志轮转、对话内存线程锁 + 空闲回收、DCF 会话 TTL、项目 404-vs-500 错误分类、stub 端点标注 deprecated（`/portfolio/frontier`、仪表盘 `risk_summary`、`/ws/modeling/progress`）。P2/P3：fallback HTML `html.escape`（防 XSS）、copilot 工具 `gather` 改 `return_exceptions=True`、`hmac.compare_digest` 常量时间鉴权、新增 `/api/v1/audit/verify-chain` 端点、`start.sh doctor`、批量 DCF 标量利润率修复。共 530 测试，ruff 干净。
+
 v0.5.4：**端口冲突修复** — 服务绑定端口 11446→11466（issue #13）。11446 已登记给 `fusion-multi-node-mcp` 集群枢纽；finance 绑定该端口与 multi-node MCP 网关冲突。现绑定 11466（经 40 仓端口登记表核实空闲）。仅修改 finance 自身监听默认值；任何连接 multi-node-mcp 11446 的客户端不受影响。
 
 v0.5.3：**鉴权 + 压力测试接口** — `MLXClient` 支持 `api_key` 鉴权（显式 > `FUSION_MLX_API_KEY` 环境变量 > `~/.fusion-mlx/settings.json`，httpx 回退时注入 `Authorization: Bearer` 头，修复 fusion-mlx 401，issue #7/PR #8），`stress_test_scenarios(positions=None, scenarios=None)` 接受可选 kwargs 供下游持仓敏感压力测试（issue #9/PR #11），xlsx 导出测试兼容原生与回退路径（+7 测试，共 529，覆盖率 86%）。

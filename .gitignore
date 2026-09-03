@@ -20,6 +20,7 @@ build/
 .coverage
 htmlcov/
 coverage.json
+cov.json
 
 # Claude Code (local only)
 CLAUDE.md

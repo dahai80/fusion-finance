@@ -26,7 +26,7 @@ class FinanceError(Exception):
         self.detail = detail or message
         self.safe_detail = _safe_detail(self.detail) if self.detail else ""
         super().__init__(message)
-        logger.error("FinanceError: %s | detail=%s", message, self.detail)
+        logger.error("FinanceError: %s | detail=%s", message, self.safe_detail)
 
 
 class ModelError(FinanceError):

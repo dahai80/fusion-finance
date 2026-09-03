@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 import logging
 from datetime import datetime
@@ -98,13 +99,15 @@ class ReportFormatter:
             return self._fallback_html(template_name, data)
 
     def _fallback_html(self, template_name: str, data: dict[str, Any]) -> str:
-        company = data.get("company", "Unknown")
+        company = html.escape(str(data.get("company", "Unknown")))
         body = data.get("body", data.get("content", json.dumps(data, ensure_ascii=False, default=str)))
-        date_str = data.get("date", datetime.now().strftime("%Y-%m-%d"))
+        date_str = html.escape(str(data.get("date", datetime.now().strftime("%Y-%m-%d"))))
+        safe_body = html.escape(str(body))
+        safe_tpl = html.escape(str(template_name))
         return f"""<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><title>{company} - {template_name}</title>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>{company} - {safe_tpl}</title>
 <style>body{{font-family:sans-serif;background:#0f0f1a;color:#e0e0e0;padding:40px;max-width:900px;margin:0 auto;}}</style>
-</head><body><h1>{company} - {template_name}</h1><p>{date_str}</p><div style="white-space:pre-wrap">{body}</div></body></html>"""
+</head><body><h1>{company} - {safe_tpl}</h1><p>{date_str}</p><div style="white-space:pre-wrap">{safe_body}</div></body></html>"""
 
     def export(
         self,

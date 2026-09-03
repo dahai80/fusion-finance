@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import asdict
 from typing import Any
 
@@ -21,7 +22,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_sessions: dict[str, InteractiveDCFSession] = {}
+_sessions: dict[str, dict[str, Any]] = {}
+_SESSION_TTL_SECONDS = 3600
+_MAX_SESSIONS = 100
+
+
+def _prune_sessions() -> None:
+    cutoff = time.time() - _SESSION_TTL_SECONDS
+    stale = [sid for sid, v in _sessions.items() if v["last_active"] < cutoff]
+    for sid in stale:
+        del _sessions[sid]
+    if len(_sessions) > _MAX_SESSIONS:
+        for sid in sorted(_sessions, key=lambda s: _sessions[s]["last_active"])[: len(_sessions) - _MAX_SESSIONS]:
+            del _sessions[sid]
+    if stale:
+        logger.info("pruned %d stale DCF sessions", len(stale))
 
 
 class DCFBuildRequest(BaseModel):
@@ -446,6 +461,9 @@ async def efficient_frontier_sample():
             "frontier": portfolios[:50],
             "max_sharpe": max_sharpe,
             "min_volatility": min_vol,
+            "sample": True,
+            "deprecated": True,
+            "note": "demo data only; POST /portfolio/optimize with real assets for production use",
         }
     except ModelError:
         raise
@@ -460,7 +478,8 @@ async def create_session(req: SessionCreateRequest):
     try:
         session = InteractiveDCFSession(req.company, req.assumptions)
         session_id = f"dcf_{req.company}_{id(session)}"
-        _sessions[session_id] = session
+        _prune_sessions()
+        _sessions[session_id] = {"session": session, "created_at": time.time(), "last_active": time.time()}
         logger.info("Created session: %s", session_id)
         return {"session_id": session_id, "state": session.get_state()}
     except ModelError:
@@ -475,7 +494,9 @@ async def update_session(session_id: str, req: SessionUpdateRequest):
     if session_id not in _sessions:
         raise HTTPException(status_code=404, detail="会话不存在")
     try:
-        session = _sessions[session_id]
+        _prune_sessions()
+        session = _sessions[session_id]["session"]
+        _sessions[session_id]["last_active"] = time.time()
         result = session.update_assumption(req.key, req.value)
         return {"session_id": session_id, **result}
     except ModelError:

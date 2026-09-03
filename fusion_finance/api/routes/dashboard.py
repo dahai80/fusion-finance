@@ -66,7 +66,11 @@ async def company_dashboard(req: CompanyDashboardRequest):
         "source": "input_echo",
         "ebit_margin": req.ebit_margin[0] if req.ebit_margin else None,
     }
-    result["risk_summary"] = {"status": "available", "note": "Use /api/v1/risk/kyc for detailed screening"}
+    result["risk_summary"] = {
+        "status": "stub",
+        "deprecated": True,
+        "note": "Use /api/v1/risk/kyc for detailed screening",
+    }
 
     logger.info("company_dashboard: %s", req.company)
     return result
