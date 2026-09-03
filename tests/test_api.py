@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+import fusion_finance
 from fusion_finance.api.app import app
 
 
@@ -19,7 +20,7 @@ class TestHealthEndpoints:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["version"] == "0.5.5"
+        assert data["version"] == fusion_finance.__version__
 
     def test_ready(self, client):
         resp = client.get("/api/v1/ready")
