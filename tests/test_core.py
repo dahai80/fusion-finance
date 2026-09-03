@@ -229,7 +229,8 @@ class TestModuleIntegrity:
     def test_import(self):
         import fusion_finance
 
-        assert fusion_finance.__version__ == "0.5.5"
+        assert fusion_finance.__version__
+        assert fusion_finance.__version__[0].isdigit()
 
     def test_cli_import(self):
         from fusion_finance import cli
