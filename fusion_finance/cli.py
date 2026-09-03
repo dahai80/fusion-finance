@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from dataclasses import asdict
 
 import click
 
 from . import __app_name__, __version__
 from .ai_client import MLXClient
 from .config import DEFAULT_HOST, DEFAULT_PORT
+from .exceptions import AIClientError
 from .modeling import DCFModel, FinancialModelingEngine
 from .report import ReportGenerator
 from .risk import RiskComplianceEngine
@@ -69,13 +72,23 @@ def statement():
 @click.option("--revenue", type=float)
 @click.option("--net-income", type=float)
 @click.option("--total-assets", type=float)
+@click.option("--ai", is_flag=True, help="使用 AI 深度分析（需要 fusion-mlx 运行）")
 @click.pass_context
-def stmt_analyze(ctx, company, revenue, net_income, total_assets):
+def stmt_analyze(ctx, company, revenue, net_income, total_assets, ai):
     """分析财务指标。"""
     stmt = FinancialStatement(
         company=company, revenue=revenue or 0, net_income=net_income or 0, total_assets=total_assets or 0
     )
     analyzer = ctx.obj["statements"]
+    if ai:
+        try:
+            result = asyncio.run(analyzer.analyze_statements(company, asdict(stmt)))
+            click.echo(f"\n📋 {company} AI 深度分析")
+            click.echo(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            click.echo()
+            return
+        except AIClientError as e:
+            click.echo(f"⚠️  AI 分析不可用，回退纯计算: {e.message}", err=True)
     analysis = analyzer.calculate_metrics(stmt)
     click.echo(f"\n📋 {company} 财务指标")
     if analysis.net_margin is not None:
@@ -139,6 +152,15 @@ def report_valuation(ctx, company, revenue, wacc, output):
 @click.option("--reload", is_flag=True, help="Enable auto-reload")
 def serve(host, port, reload):
     """启动 FastAPI 服务。"""
+    from .config import auth_safety_check, setup_logging
+
+    setup_logging()
+    warnings = auth_safety_check(host)
+    for w in warnings:
+        if "Refusing to start" in w:
+            click.echo(f"⛔ {w}", err=True)
+            raise SystemExit(2)
+        click.echo(f"⚠️  {w}", err=True)
     import uvicorn
 
     click.echo(f"🚀 Fusion-Finance API starting on {host}:{port}")

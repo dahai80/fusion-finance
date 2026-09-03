@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from ..ai_client import MLXClient
 from ..config import EXPORT_DIR
-from ..exceptions import ReportError
+from ..exceptions import AIClientError, ReportError
 from ..modeling.engine import CompsAnalysis, DCFModel
 from ..utils.safe_path import safe_join, sanitize_name
 
@@ -92,21 +93,23 @@ class ReportGenerator:
                 temperature=0.3,
             )
         except Exception as e:
-            return f"# {company} 投研报告\n\n*报告生成失败: {e}*"
+            logger.error("generate_research_report AI failed: %s", e)
+            raise AIClientError(message="research report AI failed", detail=str(e)) from e
 
     def save_report(self, content: str, output_dir: str = "", filename: str = "") -> str:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         if not filename:
             filename = f"report_{ts}.md"
         name = sanitize_name(filename, fallback=f"report_{ts}.md")
-        filepath = safe_join(EXPORT_DIR, name)
+        target_dir = Path(output_dir) if output_dir else EXPORT_DIR
+        filepath = safe_join(target_dir, name)
         if filepath is None:
             logger.error("save_report path traversal blocked: name=%s", name)
             raise ReportError(report_type="save", message="invalid report path")
         try:
-            EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+            target_dir.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            logger.error("failed to create export dir %s: %s", EXPORT_DIR, e)
+            logger.error("failed to create export dir %s: %s", target_dir, e)
             raise ReportError(report_type="save", message="invalid report path") from e
         filepath.write_text(content, encoding="utf-8")
         return str(filepath)

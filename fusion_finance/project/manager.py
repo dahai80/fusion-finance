@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import PROJECT_DIR
-from ..exceptions import FinanceError
+from ..exceptions import DataError, FinanceError
 from ..utils.safe_path import safe_join
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ class ProjectManager:
             proj = self._check_expected_version(project_id, expected_version)
             if not proj:
                 logger.warning("Project not found: %s", project_id)
-                return None
+                raise DataError(message="project not found", detail=project_id, field="project_id")
             if name:
                 proj.name = name
             if description:
@@ -192,7 +192,7 @@ class ProjectManager:
             raise
         except Exception as e:
             logger.error("update project failed: %s", e)
-            return None
+            raise DataError(message="update project failed", detail=str(e), field="project_id") from e
 
     def delete(self, project_id: str) -> bool:
         path = self._project_path(project_id)
@@ -287,7 +287,7 @@ class ProjectManager:
             proj = self._check_expected_version(project_id, expected_version)
             if not proj:
                 logger.warning("Project not found for snapshot: %s", project_id)
-                return None
+                raise DataError(message="project not found", detail=project_id, field="project_id")
             version_num = len(proj.versions) + 1
             snapshot_data = data if data is not None else proj.current_data
             data_file = self._write_version_data(project_id, version_num, snapshot_data)
@@ -313,7 +313,7 @@ class ProjectManager:
             raise
         except Exception as e:
             logger.error("snapshot failed: %s", e)
-            return None
+            raise DataError(message="snapshot failed", detail=str(e), field="project_id") from e
 
     def restore(self, project_id: str, version: int | None = None) -> dict | None:
 
@@ -321,10 +321,10 @@ class ProjectManager:
             proj = self._load_project(project_id)
             if not proj:
                 logger.warning("Project not found for restore: %s", project_id)
-                return None
+                raise DataError(message="project not found", detail=project_id, field="project_id")
             if not proj.versions:
                 logger.warning("No versions to restore for project: %s", project_id)
-                return None
+                raise DataError(message="no versions to restore", detail=project_id, field="version")
             if version is None or version <= 0:
                 target = proj.versions[-1]
                 target_ver = target["version"]
@@ -338,7 +338,7 @@ class ProjectManager:
                         break
             if not target:
                 logger.warning("Version %d not found for project: %s", target_ver, project_id)
-                return None
+                raise DataError(message="version not found", detail=str(target_ver), field="version")
             target_data = self._read_version_data(project_id, target_ver)
             proj.current_data = target_data
             proj.updated_at = time.time()
@@ -354,7 +354,7 @@ class ProjectManager:
             raise
         except Exception as e:
             logger.error("restore failed: %s", e)
-            return None
+            raise DataError(message="restore failed", detail=str(e), field="project_id") from e
 
     def get_versions(self, project_id: str) -> list[dict[str, Any]]:
         proj = self._load_project(project_id)

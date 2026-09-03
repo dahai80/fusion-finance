@@ -88,7 +88,14 @@ async def get_project(project_id: str):
 
 @router.put("/{project_id}", summary="更新项目")
 async def update_project(project_id: str, req: ProjectUpdateRequest):
-    proj = _manager.update(project_id, name=req.name, description=req.description, metadata=req.metadata, data=req.data)
+    try:
+        proj = _manager.update(
+            project_id, name=req.name, description=req.description, metadata=req.metadata, data=req.data
+        )
+    except DataError as e:
+        if e.field == "project_id" and e.message == "project not found":
+            raise HTTPException(status_code=404, detail="项目不存在")
+        raise
     if not proj:
         raise HTTPException(status_code=404, detail="项目不存在")
     return {"id": proj.id, "name": proj.name, "updated_at": proj.updated_at}
@@ -104,7 +111,12 @@ async def delete_project(project_id: str):
 
 @router.post("/{project_id}/snapshot", summary="保存快照")
 async def save_snapshot(project_id: str, req: SnapshotRequest):
-    result = _manager.snapshot(project_id, label=req.label, data=req.data)
+    try:
+        result = _manager.snapshot(project_id, label=req.label, data=req.data)
+    except DataError as e:
+        if e.message == "project not found":
+            raise HTTPException(status_code=404, detail="项目不存在")
+        raise
     if not result:
         raise HTTPException(status_code=404, detail="项目不存在")
     return result
@@ -118,7 +130,12 @@ async def get_versions(project_id: str):
 
 @router.post("/{project_id}/restore", summary="恢复版本")
 async def restore_version(project_id: str, req: RestoreRequest):
-    result = _manager.restore(project_id, version=req.version)
+    try:
+        result = _manager.restore(project_id, version=req.version)
+    except DataError as e:
+        if e.message in ("project not found", "version not found", "no versions to restore"):
+            raise HTTPException(status_code=404, detail="项目或版本不存在")
+        raise
     if not result:
         raise HTTPException(status_code=404, detail="项目或版本不存在")
     return result

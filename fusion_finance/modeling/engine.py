@@ -30,6 +30,7 @@ class DCFModel:
     equity_value: float = 0.0
     target_price: float = 0.0
     assumptions: dict[str, Any] = field(default_factory=dict)
+    ai_status: str = "success"
 
     def calculate(self) -> dict[str, float]:
         """执行 DCF 计算。"""
@@ -86,6 +87,7 @@ class CompsAnalysis:
     target_pe: float = 0.0
     target_ev_ebitda: float = 0.0
     implied_value: dict[str, float] = field(default_factory=dict)
+    ai_status: str = "success"
 
 
 class InteractiveDCFSession:
@@ -190,6 +192,8 @@ class FinancialModelingEngine:
             logger.error(f"DCF构建失败: {e}")
         model = DCFModel(company=company, revenue=revenue)
         model.calculate()
+        model.ai_status = "fallback"
+        logger.warning("build_dcf: AI failed, returning pure-math fallback model")
         return model
 
     async def build_comps(self, company: str, industry: str, peers: list[str] | None = None) -> CompsAnalysis:
@@ -223,7 +227,10 @@ class FinancialModelingEngine:
                 return comps
         except Exception as e:
             logger.error(f"可比分析失败: {e}")
-        return CompsAnalysis(company=company)
+        comps = CompsAnalysis(company=company)
+        comps.ai_status = "fallback"
+        logger.warning("build_comps: AI failed, returning empty fallback comps")
+        return comps
 
     async def sensitivity_analysis(
         self, model: DCFModel, wacc_range: list[float], growth_range: list[float]
@@ -294,11 +301,16 @@ class FinancialModelingEngine:
         results = []
         for i, data in enumerate(models_data):
             try:
+                raw_margin = data.get("ebit_margin", 0.2)
+                if isinstance(raw_margin, (int, float)):
+                    ebit_margin = [float(raw_margin)] * len(data.get("revenue", []))
+                else:
+                    ebit_margin = raw_margin
                 model = DCFModel(
                     company=data.get("company", f"Company_{i}"),
                     forecast_years=data.get("forecast_years", 5),
                     revenue=data.get("revenue", []),
-                    ebit_margin=data.get("ebit_margin", 0.2),
+                    ebit_margin=ebit_margin,
                     tax_rate=data.get("tax_rate", 0.25),
                     wacc=data.get("wacc", 0.1),
                     terminal_growth=data.get("terminal_growth", 0.03),
