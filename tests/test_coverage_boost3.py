@@ -145,7 +145,11 @@ class TestModelingRouteErrors:
     def test_portfolio_optimize_generic(self, monkeypatch):
         from fusion_finance.modeling import portfolio as pf
 
-        monkeypatch.setattr(pf.PortfolioOptimizer, "efficient_frontier", staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            pf.PortfolioOptimizer,
+            "efficient_frontier",
+            staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))),
+        )
         c = _client()
         resp = c.post("/api/v1/modeling/portfolio/optimize", json={"returns": [0.1]})
         assert resp.status_code == 422
@@ -153,7 +157,11 @@ class TestModelingRouteErrors:
     def test_frontier_sample_generic(self, monkeypatch):
         from fusion_finance.modeling import portfolio as pf
 
-        monkeypatch.setattr(pf.PortfolioOptimizer, "efficient_frontier", staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            pf.PortfolioOptimizer,
+            "efficient_frontier",
+            staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))),
+        )
         c = _client()
         resp = c.get("/api/v1/modeling/portfolio/frontier")
         assert resp.status_code == 422
@@ -161,7 +169,9 @@ class TestModelingRouteErrors:
     def test_create_session_generic(self, monkeypatch):
         from fusion_finance.api.routes import modeling as mod
 
-        monkeypatch.setattr(mod.InteractiveDCFSession, "__init__", lambda self, *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            mod.InteractiveDCFSession, "__init__", lambda self, *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/modeling/session", json={"company": "X", "assumptions": {"wacc": 0.1}})
         assert resp.status_code == 422
@@ -177,7 +187,9 @@ class TestModelingRouteErrors:
         c = _client()
         resp = c.post("/api/v1/modeling/session", json={"company": "X", "assumptions": {"wacc": 0.1}})
         sid = resp.json()["session_id"]
-        monkeypatch.setattr(mod._sessions[sid]["session"], "update_assumption", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            mod._sessions[sid]["session"], "update_assumption", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         resp = c.put(f"/api/v1/modeling/session/{sid}", json={"key": "wacc", "value": 0.12})
         assert resp.status_code == 422
 
@@ -192,7 +204,11 @@ class TestModelingRouteErrors:
     def test_batch_dcf_generic(self, monkeypatch):
         from fusion_finance.modeling import engine as eng
 
-        monkeypatch.setattr(eng.FinancialModelingEngine, "batch_dcf", staticmethod(lambda models: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            eng.FinancialModelingEngine,
+            "batch_dcf",
+            staticmethod(lambda models: (_ for _ in ()).throw(RuntimeError("boom"))),
+        )
         c = _client()
         resp = c.post("/api/v1/modeling/batch-dcf", json={"models": [{"company": "X", "revenue": [100]}]})
         assert resp.status_code == 422
@@ -200,9 +216,16 @@ class TestModelingRouteErrors:
     def test_black_litterman_generic(self, monkeypatch):
         from fusion_finance.modeling import portfolio as pf
 
-        monkeypatch.setattr(pf.BlackLittermanOptimizer, "posterior_returns", staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            pf.BlackLittermanOptimizer,
+            "posterior_returns",
+            staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))),
+        )
         c = _client()
-        resp = c.post("/api/v1/modeling/portfolio/black-litterman", json={"market_weights": [0.5, 0.5], "cov_matrix": [[1, 0], [0, 1]]})
+        resp = c.post(
+            "/api/v1/modeling/portfolio/black-litterman",
+            json={"market_weights": [0.5, 0.5], "cov_matrix": [[1, 0], [0, 1]]},
+        )
         assert resp.status_code == 422
 
     def test_black_litterman_bad_params(self):
@@ -223,7 +246,10 @@ class TestModelingRouteErrors:
 
         monkeypatch.setattr(pf.YieldCurve, "calibrate", lambda self, *a: (_ for _ in ()).throw(RuntimeError("boom")))
         c = _client()
-        resp = c.post("/api/v1/modeling/yield-curve/calibrate", json={"observed_maturities": [1, 2], "observed_rates": [0.03, 0.035]})
+        resp = c.post(
+            "/api/v1/modeling/yield-curve/calibrate",
+            json={"observed_maturities": [1, 2], "observed_rates": [0.03, 0.035]},
+        )
         assert resp.status_code == 422
 
 
@@ -294,7 +320,9 @@ class TestRiskRouteErrors:
     def test_var_generic_error(self, monkeypatch):
         from fusion_finance.risk import advanced_risk as ar
 
-        monkeypatch.setattr(ar.RiskModelingEngine, "calculate_var", staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            ar.RiskModelingEngine, "calculate_var", staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        )
         c = _client()
         resp = c.post("/api/v1/risk/var", json={"returns": [0.1], "portfolio_value": 100})
         assert resp.status_code == 422
@@ -302,7 +330,11 @@ class TestRiskRouteErrors:
     def test_monte_carlo_var_generic_error(self, monkeypatch):
         from fusion_finance.risk import advanced_risk as ar
 
-        monkeypatch.setattr(ar.RiskModelingEngine, "monte_carlo_var", staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            ar.RiskModelingEngine,
+            "monte_carlo_var",
+            staticmethod(lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))),
+        )
         c = _client()
         resp = c.post("/api/v1/risk/var/monte-carlo", json={"portfolio_value": 100, "simulations": 5})
         assert resp.status_code == 422
@@ -310,7 +342,11 @@ class TestRiskRouteErrors:
     def test_stress_scenarios_generic_error(self, monkeypatch):
         from fusion_finance.risk import advanced_risk as ar
 
-        monkeypatch.setattr(ar.RiskModelingEngine, "stress_test_scenarios", staticmethod(lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            ar.RiskModelingEngine,
+            "stress_test_scenarios",
+            staticmethod(lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))),
+        )
         c = _client()
         resp = c.get("/api/v1/risk/stress-scenarios")
         assert resp.status_code == 422
@@ -334,7 +370,9 @@ class TestRiskRouteErrors:
     def test_sanctions_batch_generic_error(self, monkeypatch):
         from fusion_finance.api.routes import risk as rroute
 
-        monkeypatch.setattr(rroute._sanctions_engine, "screen_batch", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            rroute._sanctions_engine, "screen_batch", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/risk/sanctions/batch", json={"entities": ["a"]})
         assert resp.status_code == 422
@@ -342,7 +380,9 @@ class TestRiskRouteErrors:
     def test_entity_graph_generic_error(self, monkeypatch):
         from fusion_finance.api.routes import risk as rroute
 
-        monkeypatch.setattr(rroute._entity_resolver, "build_from_structure", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            rroute._entity_resolver, "build_from_structure", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/risk/entity-graph", json={"nodes": [], "edges": []})
         assert resp.status_code == 422
@@ -350,7 +390,9 @@ class TestRiskRouteErrors:
     def test_resolve_ubo_generic_error(self, monkeypatch):
         from fusion_finance.api.routes import risk as rroute
 
-        monkeypatch.setattr(rroute._entity_resolver, "build_from_structure", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            rroute._entity_resolver, "build_from_structure", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/risk/entity-graph/ubo", json={"target_entity_id": "x"})
         assert resp.status_code == 422
@@ -398,7 +440,9 @@ class TestDataRouteErrors:
     def test_check_completeness_generic_error(self, monkeypatch):
         from fusion_finance.api.routes import data as droute
 
-        monkeypatch.setattr(droute._adapter, "check_completeness", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            droute._adapter, "check_completeness", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/data/validate/completeness", json={"data": [{"a": 1}]})
         assert resp.status_code == 400
@@ -466,7 +510,9 @@ class TestDataRouteErrors:
     def test_market_technicals_generic_error(self, monkeypatch):
         from fusion_finance.api.routes import data as droute
 
-        monkeypatch.setattr(droute._market, "compute_technicals", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            droute._market, "compute_technicals", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/data/market/technicals", json={"ohlcv": []})
         assert resp.status_code == 400
@@ -549,23 +595,34 @@ class TestStatementsRouteErrors:
     def test_metrics_generic_error(self, monkeypatch):
         from fusion_finance.statements import analyzer as anz
 
-        monkeypatch.setattr(anz.StatementAnalyzer, "calculate_metrics", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            anz.StatementAnalyzer, "calculate_metrics", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
-        resp = c.post("/api/v1/statements/metrics", json={"company": "X", "revenue": 1, "net_income": 1, "total_assets": 1})
+        resp = c.post(
+            "/api/v1/statements/metrics", json={"company": "X", "revenue": 1, "net_income": 1, "total_assets": 1}
+        )
         assert resp.status_code == 400
 
     def test_validate_generic_error(self, monkeypatch):
         from fusion_finance.statements import analyzer as anz
 
-        monkeypatch.setattr(anz.StatementAnalyzer, "validate_balance_sheet", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            anz.StatementAnalyzer, "validate_balance_sheet", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
-        resp = c.post("/api/v1/statements/validate", json={"statements": [{"company": "X", "total_assets": 1, "total_liabilities": 0, "equity": 1}]})
+        resp = c.post(
+            "/api/v1/statements/validate",
+            json={"statements": [{"company": "X", "total_assets": 1, "total_liabilities": 0, "equity": 1}]},
+        )
         assert resp.status_code == 400
 
     def test_screener_generic_error(self, monkeypatch):
         from fusion_finance.statements import screener as scr
 
-        monkeypatch.setattr(scr.FinancialScreener, "screen", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            scr.FinancialScreener, "screen", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/statements/screener", json={"filters": {"preset": "growth"}, "limit": 5})
         assert resp.status_code == 400
@@ -573,7 +630,9 @@ class TestStatementsRouteErrors:
     def test_normalize_generic_error(self, monkeypatch):
         from fusion_finance.statements import normalizer as norm
 
-        monkeypatch.setattr(norm.StatementNormalizer, "normalize", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            norm.StatementNormalizer, "normalize", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         c = _client()
         resp = c.post("/api/v1/statements/normalize", json={"data": {"revenue": 1}, "standard": "A", "company": "X"})
         assert resp.status_code == 400
@@ -581,9 +640,15 @@ class TestStatementsRouteErrors:
     def test_trend_generic_error(self, monkeypatch):
         from fusion_finance.statements import normalizer as norm
 
-        monkeypatch.setattr(norm.StatementNormalizer, "trend_analysis", staticmethod(lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))))
+        monkeypatch.setattr(
+            norm.StatementNormalizer,
+            "trend_analysis",
+            staticmethod(lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))),
+        )
         c = _client()
-        resp = c.post("/api/v1/statements/trend", json={"statements": [{"company": "X", "period": "2024", "revenue": 1}]})
+        resp = c.post(
+            "/api/v1/statements/trend", json={"statements": [{"company": "X", "period": "2024", "revenue": 1}]}
+        )
         assert resp.status_code == 400
 
 

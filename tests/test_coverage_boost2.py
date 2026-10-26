@@ -452,12 +452,14 @@ class TestReportFormatter:
         assert path.endswith(".csv")
 
     def test_export_xlsx_with_dcf_summary(self, tmp_path):
+        pytest.importorskip("openpyxl")
         fmt = self._fmt()
         data = {"dcf_summary": [{"label": "EV", "value": 100}, {"label": "Equity", "value": 80}]}
         path = fmt.export("content", "xlsx", template_data=data, output_path="rep")
         assert path.endswith(".xlsx")
 
     def test_export_xlsx_with_financial_table(self, tmp_path):
+        pytest.importorskip("openpyxl")
         fmt = self._fmt()
         data = {"financial_table": {"columns": ["A", "B"], "rows": [["1", "2"], ["3", "4"]]}}
         path = fmt.export("content", "xlsx", template_data=data, output_path="rep")
@@ -494,14 +496,18 @@ class TestReportFormatter:
         pytest.importorskip("pptx")
         fmt = self._fmt()
         fmt._detect_deps()
-        path = fmt.export("content here", "pptx", template_data={"company": "C", "date": "2026-01-01"}, output_path="rep")
+        path = fmt.export(
+            "content here", "pptx", template_data={"company": "C", "date": "2026-01-01"}, output_path="rep"
+        )
         assert path.endswith(".pptx")
 
     def test_export_xlsx_real(self, tmp_path):
         pytest.importorskip("openpyxl")
         fmt = self._fmt()
         fmt._detect_deps()
-        path = fmt.export("content", "xlsx", template_data={"dcf_summary": [{"label": "L", "value": 1}]}, output_path="rep")
+        path = fmt.export(
+            "content", "xlsx", template_data={"dcf_summary": [{"label": "L", "value": 1}]}, output_path="rep"
+        )
         assert path.endswith(".xlsx")
 
 
@@ -666,11 +672,7 @@ class TestStatementsRoutes:
         c = _client()
         resp = c.post(
             "/api/v1/statements/validate",
-            json={
-                "statements": [
-                    {"company": "X", "total_assets": 1000, "total_liabilities": 400, "equity": 600}
-                ]
-            },
+            json={"statements": [{"company": "X", "total_assets": 1000, "total_liabilities": 400, "equity": 600}]},
         )
         assert resp.status_code == 200
         assert "issues" in resp.json()
@@ -1163,7 +1165,10 @@ class TestToolRegistry:
 
         reg = self._registry()
         result = asyncio.run(
-            reg.execute("sensitivity_analysis", {"company": "X", "revenue": [100, 120], "wacc_range": [0.08, 0.1], "growth_range": [0.02, 0.03]})
+            reg.execute(
+                "sensitivity_analysis",
+                {"company": "X", "revenue": [100, 120], "wacc_range": [0.08, 0.1], "growth_range": [0.02, 0.03]},
+            )
         )
         assert isinstance(result, dict)
 
@@ -1181,7 +1186,10 @@ class TestToolRegistry:
         result = asyncio.run(
             reg.execute(
                 "calculate_metrics",
-                {"income_statement": {"company": "X", "revenue": 1000, "net_income": 100}, "balance_sheet": {"total_assets": 5000, "total_equity": 2000}},
+                {
+                    "income_statement": {"company": "X", "revenue": 1000, "net_income": 100},
+                    "balance_sheet": {"total_assets": 5000, "total_equity": 2000},
+                },
             )
         )
         assert "net_margin" in result
@@ -1205,7 +1213,12 @@ class TestToolRegistry:
         result = asyncio.run(
             reg.execute(
                 "black_litterman",
-                {"returns": [0.1, 0.12], "volatilities": [0.15, 0.2], "correlations": [[1, 0.3], [0.3, 1]], "views": []},
+                {
+                    "returns": [0.1, 0.12],
+                    "volatilities": [0.15, 0.2],
+                    "correlations": [[1, 0.3], [0.3, 1]],
+                    "views": [],
+                },
             )
         )
         assert isinstance(result, dict)
@@ -1236,7 +1249,9 @@ class TestToolRegistry:
 
         reg = self._registry()
         result = asyncio.run(
-            reg.execute("bond_analysis", {"face_value": 1000, "coupon_rate": 0.05, "years": 5, "yield_to_maturity": 0.05})
+            reg.execute(
+                "bond_analysis", {"face_value": 1000, "coupon_rate": 0.05, "years": 5, "yield_to_maturity": 0.05}
+            )
         )
         assert isinstance(result, dict)
 
@@ -1287,9 +1302,7 @@ class TestToolRegistry:
         import asyncio
 
         reg = self._registry()
-        reg._mlx.chat = AsyncMock(
-            return_value='{"wacc": 0.1, "terminal_growth": 0.03, "ebit_margin": [0.2, 0.2]}'
-        )
+        reg._mlx.chat = AsyncMock(return_value='{"wacc": 0.1, "terminal_growth": 0.03, "ebit_margin": [0.2, 0.2]}')
         result = asyncio.run(reg.execute("build_dcf", {"company": "X", "revenue": [100, 120]}))
         assert isinstance(result, dict)
 
