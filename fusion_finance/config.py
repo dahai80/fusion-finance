@@ -81,9 +81,7 @@ def auth_safety_check(host: str) -> list[str]:
             "Refusing to start. Set FUSION_FINANCE_DISABLE_AUTH=0 or bind 127.0.0.1."
         )
     elif is_auth_disabled():
-        warnings.append(
-            "Auth disabled via FUSION_FINANCE_DISABLE_AUTH — only safe for local loopback use."
-        )
+        warnings.append("Auth disabled via FUSION_FINANCE_DISABLE_AUTH — only safe for local loopback use.")
     return warnings
 
 
@@ -98,9 +96,7 @@ def setup_logging(level: str = "") -> None:
     lvl = (level or LOG_LEVEL).upper()
     log_file = DATA_DIR / "fusion-finance.log"
     log_file.parent.mkdir(parents=True, exist_ok=True)
-    handler = logging.handlers.RotatingFileHandler(
-        log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
-    )
+    handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8")
     handler.setFormatter(
         logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     )

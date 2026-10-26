@@ -68,9 +68,7 @@ def create_app() -> FastAPI:
             error_type = "ai_client_error"
             status = 503
         detail = exc.safe_detail or exc.message or "internal error"
-        logger.error(
-            "FinanceError handled: %s | type=%s | detail=%s", exc.message, error_type, detail, exc_info=True
-        )
+        logger.error("FinanceError handled: %s | type=%s | detail=%s", exc.message, error_type, detail, exc_info=True)
         return JSONResponse(status_code=status, content={"error": error_type, "detail": detail})
 
     app.add_middleware(APIKeyMiddleware, api_key=get_api_key())

@@ -53,7 +53,7 @@ class TestParseJson:
     def test_fenced_json(self):
         from fusion_finance.utils.parse_json import parse_json
 
-        text = "```json\n{\"a\": 1}\n```"
+        text = '```json\n{"a": 1}\n```'
         assert parse_json(text) == {"a": 1}
         text2 = "```\n[1, 2]\n```"
         assert parse_json(text2) == [1, 2]
@@ -61,7 +61,7 @@ class TestParseJson:
     def test_embedded_object(self):
         from fusion_finance.utils.parse_json import parse_json
 
-        text = "Here is the result: {\"a\": 1, \"b\": 2} done"
+        text = 'Here is the result: {"a": 1, "b": 2} done'
         assert parse_json(text) == {"a": 1, "b": 2}
 
     def test_embedded_array(self):
@@ -596,9 +596,7 @@ class TestRiskRoutes:
         from fusion_finance.api.dependencies import get_mlx_client
 
         mock = MagicMock()
-        mock.chat = AsyncMock(
-            return_value='{"compliant": true, "issues": [], "overall_risk": "low", "summary": "ok"}'
-        )
+        mock.chat = AsyncMock(return_value='{"compliant": true, "issues": [], "overall_risk": "low", "summary": "ok"}')
         app.dependency_overrides[get_mlx_client] = lambda: mock
         try:
             c = _client()
@@ -1087,9 +1085,7 @@ class TestCopilotRoutes:
 
     def test_chat_route_mock(self):
         engine = MagicMock()
-        engine.chat = AsyncMock(
-            return_value={"reply": "hi", "tool_calls": [], "rounds": 0, "session_id": "s1"}
-        )
+        engine.chat = AsyncMock(return_value={"reply": "hi", "tool_calls": [], "rounds": 0, "session_id": "s1"})
         engine.mlx = MagicMock()
         self._override_engine(engine)
         try:

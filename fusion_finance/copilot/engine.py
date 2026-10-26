@@ -148,9 +148,7 @@ class CopilotEngine:
                 break
 
             rounds += 1
-            results = await asyncio.gather(
-                *[self.registry.execute(n, a) for n, a in pending], return_exceptions=True
-            )
+            results = await asyncio.gather(*[self.registry.execute(n, a) for n, a in pending], return_exceptions=True)
             all_messages.append({"role": "assistant", "content": response})
             for (tool_name, tool_args), tool_result in zip(pending, results):
                 if isinstance(tool_result, Exception):
@@ -233,9 +231,7 @@ class CopilotEngine:
                     yield c
                 self.memory.add_message(session_id, "assistant", response)
                 return
-            results = await asyncio.gather(
-                *[self.registry.execute(n, a) for n, a in pending], return_exceptions=True
-            )
+            results = await asyncio.gather(*[self.registry.execute(n, a) for n, a in pending], return_exceptions=True)
             all_messages.append({"role": "assistant", "content": response})
             for (tool_name, tool_args), tool_result in zip(pending, results):
                 if isinstance(tool_result, Exception):
