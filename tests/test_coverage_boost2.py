@@ -452,12 +452,14 @@ class TestReportFormatter:
         assert path.endswith(".csv")
 
     def test_export_xlsx_with_dcf_summary(self, tmp_path):
+        pytest.importorskip("openpyxl")
         fmt = self._fmt()
         data = {"dcf_summary": [{"label": "EV", "value": 100}, {"label": "Equity", "value": 80}]}
         path = fmt.export("content", "xlsx", template_data=data, output_path="rep")
         assert path.endswith(".xlsx")
 
     def test_export_xlsx_with_financial_table(self, tmp_path):
+        pytest.importorskip("openpyxl")
         fmt = self._fmt()
         data = {"financial_table": {"columns": ["A", "B"], "rows": [["1", "2"], ["3", "4"]]}}
         path = fmt.export("content", "xlsx", template_data=data, output_path="rep")
