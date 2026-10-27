@@ -208,9 +208,10 @@ class TestMLXClient:
         client = MLXClient(api_key="secret123")
         assert client.api_key == "secret123"
 
-    def test_api_key_env(self, monkeypatch):
+    def test_api_key_env(self, monkeypatch, tmp_path):
         monkeypatch.setenv("FUSION_MLX_API_KEY", "envkey")
-        client = MLXClient()
+        monkeypatch.setenv("HOME", str(tmp_path))
+        client = MLXClient(base_url="http://localhost:11434/v1")
         assert client.api_key == "envkey"
 
     def test_httpx_auth_header(self, monkeypatch):

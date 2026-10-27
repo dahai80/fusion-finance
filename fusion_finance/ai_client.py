@@ -24,9 +24,39 @@ except ImportError:
     logger.info("fusion_core not available, falling back to httpx")
 
 
-def _resolve_api_key(explicit: str = "") -> str:
+def _is_gateway_url(base_url: str) -> bool:
+    if not base_url:
+        return False
+    lowered = base_url.lower()
+    return ":11432" in lowered or "gateway" in lowered
+
+
+def _resolve_gateway_api_key() -> str:
+    key = os.environ.get("FUSION_GATEWAY_API_KEY", "")
+    if key:
+        return key
+    try:
+        cfg_path = Path.home() / ".fusion-mlx" / "settings.json"
+        if cfg_path.exists():
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            key = str((cfg.get("shell", {}) or {}).get("gateway_admin_key", "") or "")
+            if key:
+                return key
+    except Exception as e:
+        logger.warning("read gateway_admin_key from settings.json failed: %s", e)
+    return ""
+
+
+def _resolve_api_key(explicit: str = "", base_url: str = "") -> str:
     if explicit:
         return explicit
+    if _is_gateway_url(base_url):
+        key = _resolve_gateway_api_key()
+        if key:
+            return key
+        logger.warning(
+            "base_url looks like the gateway (%s) but no gateway key found; falling back to fusion-mlx key", base_url
+        )
     key = os.environ.get("FUSION_MLX_API_KEY", "")
     if key:
         return key
@@ -76,13 +106,13 @@ class MLXClient:
         self.base_url = base_url or DEFAULT_MLX_BASE_URL
         self.default_model = model or DEFAULT_MODEL
         self.max_retries = max_retries
-        self.api_key = _resolve_api_key(api_key)
+        self.api_key = _resolve_api_key(api_key, self.base_url)
         self._client: Any = None
         self._httpx_client: Any = None
         self.last_error: str = ""
         self._breaker = _CircuitBreaker()
         if _HAS_FUSION_CORE:
-            self._client = FusionMLXClient(base_url=self.base_url)
+            self._client = FusionMLXClient(base_url=self.base_url, api_key=self.api_key or None)
         logger.info(
             "MLXClient initialized, base_url=%s, model=%s, fusion_core=%s, api_key=%s",
             self.base_url,
