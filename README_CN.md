@@ -22,6 +22,8 @@
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
+v0.5.8：**进程标题 + 回环绑定 + 采纳 fusion_core.config**（issue #23、#24）— 服务进程在 FastAPI lifespan 中通过 `fusion_core.proc.set_process_title` 设置进程标题（`ps` 显示 `fusion-finance serve :11466`，不再是裸的 Python/uvicorn 命令行）；默认绑定从 `0.0.0.0` 改为 `127.0.0.1`（`config.py` 与 `start.sh` 同步修改，可用 `FUSION_FINANCE_HOST` 覆盖）；配置解析采纳 `fusion_core.config`（`service_port`/`service_data_dir` 传裸应用名 `finance`，`MLXClient` 内使用 `resolve_api_key`/`load_settings`），删除本地重复解析器并将依赖提升为 `fusion-core>=0.7.0`；新增直接依赖 `setproctitle>=1.3.0`。网关管理密钥解析暂保留本地实现（`_gateway_admin_key`），等待上游 fusion-core#35；暂不采用 `client_key()` — 本机尚未签发 `FUSION_CLIENT_KEY`，采用将导致 v0.5.7 网关鉴权修复回退。854 测试通过 + 1 跳过，ruff 干净；实测：`lsof` 显示 `TCP 127.0.0.1:11466 (LISTEN)`，`ps -o command` 显示 `fusion-finance serve :11466`，`/api/v1/ready` 返回 200。
+
 v0.5.7：**网关鉴权修复**（issue #21）— 默认 base_url 指向 fusion-gateway（`:11432`）时 `/api/v1/ready` 不再返回 503。`MLXClient` 现按目标解析 API key：base_url 为网关时优先使用网关密钥（`FUSION_GATEWAY_API_KEY` 环境变量 > `~/.fusion-mlx/settings.json` 的 `shell.gateway_admin_key`），而非被网关 401 拒绝的 fusion-mlx 密钥；解析出的密钥同时透传给 `fusion_core.FusionMLXClient` 路径（此前构造时未传 key，导致 `health_check()` 一直 401）。修复 fusion-supervisor RestartFailed 告警循环。854 测试通过 + 1 跳过，ruff 干净；实测 `/api/v1/ready` 返回 200 `{"status":"ready","mlx":"connected"}`。
 
 v0.5.6：**CI 修复恢复绿色**（issue #19）— CI `test` 任务改为先检出并安装 in-tree 依赖 `fusion-core` 再安装 `fusion-finance`（其不在 PyPI 上，自 2026-09-03 起 CI 中 `pip install -e ".[test]"` 一直失败）；补声明缺失的直接依赖 `numpy`（组合优化、高级风险）与 `click`（CLI，此前被共享 monorepo venv 掩盖）；两个 xlsx 导出测试在可选依赖 `openpyxl` 缺失时跳过；对 6 个文件执行 `ruff format` 使 `lint` 任务的 `ruff format --check` 通过；版本从 0.5.5rc1 升至 0.5.6。开发 venv 849 测试通过 + 1 跳过，CI 模拟干净 venv 843 通过 + 7 跳过，ruff 干净。
