@@ -835,19 +835,19 @@ class TestProjectRoutes:
 
 
 class TestMLXClient:
-    def test_resolve_api_key_explicit(self):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_explicit(self):
+        from fusion_finance.ai_client import _api_key_for
 
-        assert _resolve_api_key("key123") == "key123"
+        assert _api_key_for("key123") == "key123"
 
-    def test_resolve_api_key_gateway_env(self, monkeypatch):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_gateway_env(self, monkeypatch):
+        from fusion_finance.ai_client import _api_key_for
 
         monkeypatch.setenv("FUSION_GATEWAY_API_KEY", "gwkey")
-        assert _resolve_api_key("", "http://localhost:11432/v1") == "gwkey"
+        assert _api_key_for("", "http://localhost:11432/v1") == "gwkey"
 
-    def test_resolve_api_key_gateway_settings_file(self, monkeypatch, tmp_path):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_gateway_settings_file(self, monkeypatch, tmp_path):
+        from fusion_finance.ai_client import _api_key_for
 
         monkeypatch.delenv("FUSION_GATEWAY_API_KEY", raising=False)
         monkeypatch.delenv("FUSION_MLX_API_KEY", raising=False)
@@ -857,10 +857,10 @@ class TestMLXClient:
         cfg.write_text(
             json.dumps({"auth": {"api_key": "mlxkey"}, "shell": {"gateway_admin_key": "admkey"}}), encoding="utf-8"
         )
-        assert _resolve_api_key("", "http://localhost:11432/v1") == "admkey"
+        assert _api_key_for("", "http://localhost:11432/v1") == "admkey"
 
-    def test_resolve_api_key_gateway_falls_back_to_mlx(self, monkeypatch, tmp_path):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_gateway_falls_back_to_mlx(self, monkeypatch, tmp_path):
+        from fusion_finance.ai_client import _api_key_for
 
         monkeypatch.delenv("FUSION_GATEWAY_API_KEY", raising=False)
         monkeypatch.delenv("FUSION_MLX_API_KEY", raising=False)
@@ -868,14 +868,14 @@ class TestMLXClient:
         cfg = tmp_path / ".fusion-mlx" / "settings.json"
         cfg.parent.mkdir(parents=True, exist_ok=True)
         cfg.write_text(json.dumps({"auth": {"api_key": "mlxkey"}}), encoding="utf-8")
-        assert _resolve_api_key("", "http://localhost:11432/v1") == "mlxkey"
+        assert _api_key_for("", "http://localhost:11432/v1") == "mlxkey"
 
-    def test_resolve_api_key_non_gateway_ignores_gateway_key(self, monkeypatch):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_non_gateway_ignores_gateway_key(self, monkeypatch):
+        from fusion_finance.ai_client import _api_key_for
 
         monkeypatch.setenv("FUSION_GATEWAY_API_KEY", "gwkey")
         monkeypatch.setenv("FUSION_MLX_API_KEY", "mlxenvkey")
-        assert _resolve_api_key("", "http://localhost:11434/v1") == "mlxenvkey"
+        assert _api_key_for("", "http://localhost:11434/v1") == "mlxenvkey"
 
     def test_mlx_client_gateway_key(self, monkeypatch):
         from fusion_finance.ai_client import MLXClient
@@ -884,31 +884,31 @@ class TestMLXClient:
         client = MLXClient(base_url="http://localhost:11432/v1")
         assert client.api_key == "gwkey"
 
-    def test_resolve_api_key_env(self, monkeypatch):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_env(self, monkeypatch):
+        from fusion_finance.ai_client import _api_key_for
 
         monkeypatch.setenv("FUSION_MLX_API_KEY", "envkey")
-        assert _resolve_api_key("") == "envkey"
+        assert _api_key_for("") == "envkey"
 
-    def test_resolve_api_key_settings_file(self, monkeypatch, tmp_path):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_settings_file(self, monkeypatch, tmp_path):
+        from fusion_finance.ai_client import _api_key_for
 
         monkeypatch.delenv("FUSION_MLX_API_KEY", raising=False)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         cfg = tmp_path / ".fusion-mlx" / "settings.json"
         cfg.parent.mkdir(parents=True, exist_ok=True)
         cfg.write_text(json.dumps({"auth": {"api_key": "filekey"}}), encoding="utf-8")
-        assert _resolve_api_key("") == "filekey"
+        assert _api_key_for("") == "filekey"
 
-    def test_resolve_api_key_settings_corrupt(self, monkeypatch, tmp_path):
-        from fusion_finance.ai_client import _resolve_api_key
+    def test_api_key_for_settings_corrupt(self, monkeypatch, tmp_path):
+        from fusion_finance.ai_client import _api_key_for
 
         monkeypatch.delenv("FUSION_MLX_API_KEY", raising=False)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         cfg = tmp_path / ".fusion-mlx" / "settings.json"
         cfg.parent.mkdir(parents=True, exist_ok=True)
         cfg.write_text("NOT JSON", encoding="utf-8")
-        assert _resolve_api_key("") == ""
+        assert _api_key_for("") == ""
 
     def test_circuit_breaker(self):
         from fusion_finance.ai_client import _CircuitBreaker

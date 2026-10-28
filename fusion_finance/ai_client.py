@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import time
 from collections.abc import AsyncIterator
-from pathlib import Path
 from typing import Any
+
+from fusion_core.config import load_settings, resolve_api_key
 
 from .config import DEFAULT_MLX_BASE_URL, DEFAULT_MODEL
 from .exceptions import AIClientError
@@ -31,45 +31,38 @@ def _is_gateway_url(base_url: str) -> bool:
     return ":11432" in lowered or "gateway" in lowered
 
 
-def _resolve_gateway_api_key() -> str:
+def _gateway_admin_key() -> str:
     key = os.environ.get("FUSION_GATEWAY_API_KEY", "")
     if key:
         return key
     try:
-        cfg_path = Path.home() / ".fusion-mlx" / "settings.json"
-        if cfg_path.exists():
-            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-            key = str((cfg.get("shell", {}) or {}).get("gateway_admin_key", "") or "")
-            if key:
-                return key
+        cfg = load_settings()
     except Exception as e:
-        logger.warning("read gateway_admin_key from settings.json failed: %s", e)
+        logger.warning("load settings.json for gateway_admin_key failed: %s", e)
+        return ""
+    shell = cfg.get("shell", {})
+    if isinstance(shell, dict):
+        key = str(shell.get("gateway_admin_key", "") or "")
+        if key:
+            return key
     return ""
 
 
-def _resolve_api_key(explicit: str = "", base_url: str = "") -> str:
+def _api_key_for(explicit: str = "", base_url: str = "") -> str:
     if explicit:
         return explicit
     if _is_gateway_url(base_url):
-        key = _resolve_gateway_api_key()
+        key = _gateway_admin_key()
         if key:
             return key
         logger.warning(
             "base_url looks like the gateway (%s) but no gateway key found; falling back to fusion-mlx key", base_url
         )
-    key = os.environ.get("FUSION_MLX_API_KEY", "")
-    if key:
-        return key
     try:
-        cfg_path = Path.home() / ".fusion-mlx" / "settings.json"
-        if cfg_path.exists():
-            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-            key = str(cfg.get("auth", {}).get("api_key", "") or "")
-            if key:
-                return key
+        return resolve_api_key(env_var="FUSION_MLX_API_KEY")
     except Exception as e:
-        logger.warning("read mlx settings.json failed: %s", e)
-    return ""
+        logger.warning("resolve_api_key via fusion_core failed: %s", e)
+        return ""
 
 
 class _CircuitBreaker:
@@ -106,7 +99,7 @@ class MLXClient:
         self.base_url = base_url or DEFAULT_MLX_BASE_URL
         self.default_model = model or DEFAULT_MODEL
         self.max_retries = max_retries
-        self.api_key = _resolve_api_key(api_key, self.base_url)
+        self.api_key = _api_key_for(api_key, self.base_url)
         self._client: Any = None
         self._httpx_client: Any = None
         self.last_error: str = ""
