@@ -8,14 +8,16 @@ import os
 import secrets
 from pathlib import Path
 
+from fusion_core.config import service_data_dir, service_port
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_HOST = os.getenv("FUSION_FINANCE_HOST", "0.0.0.0")
-DEFAULT_PORT = int(os.getenv("FUSION_FINANCE_PORT", "11466"))
+DEFAULT_HOST = os.getenv("FUSION_FINANCE_HOST", "127.0.0.1")
+DEFAULT_PORT = service_port("finance", default=11466)
 DEFAULT_MLX_BASE_URL = "http://localhost:11432/v1"
 DEFAULT_MODEL = "qwen3.5-9b"
 
-DATA_DIR = Path(os.getenv("FUSION_FINANCE_DATA_DIR", str(Path.home() / ".fusion" / "finance")))
+DATA_DIR = service_data_dir("finance", default=Path.home() / ".fusion" / "finance")
 AUDIT_DIR = DATA_DIR / "audit"
 PROJECT_DIR = DATA_DIR / "projects"
 CACHE_DIR = DATA_DIR / "cache"
