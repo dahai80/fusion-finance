@@ -11,7 +11,7 @@ elif command -v python3 >/dev/null 2>&1; then
 else
     PYTHON="python"
 fi
-HOST="${FUSION_FINANCE_HOST:-0.0.0.0}"
+HOST="${FUSION_FINANCE_HOST:-127.0.0.1}"
 PORT="${FUSION_FINANCE_PORT:-11466}"
 LOG_FILE="$SCRIPT_DIR/.fusion-finance.log"
 LOG_MAX_BYTES=$((10 * 1024 * 1024))

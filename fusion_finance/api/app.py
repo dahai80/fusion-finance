@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fusion_core.proc import set_process_title
 
 from .. import __version__
 from ..ai_client import MLXClient
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
     setup_logging()
     ensure_dirs()
     app.state.port = getattr(app.state, "port", DEFAULT_PORT)
+    set_process_title(f"fusion-finance serve :{app.state.port}")
     app.state.mlx_client = MLXClient()
     app.state.copilot_engine = CopilotEngine(app.state.mlx_client)
     bind_host = getattr(app.state, "host", "127.0.0.1")
