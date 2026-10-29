@@ -46,6 +46,17 @@ start() {
         echo "Fusion-Finance already running (PID $(cat "$PID_FILE"))"
         return 0
     fi
+    SERVICE="fusion-finance"
+    REGISTRY="${FUSION_REGISTRY:-$HOME/fusion/architecture/port-registry.yaml}"
+    if [ ! -f "$REGISTRY" ]; then
+        echo "warn: port-registry.yaml not found at $REGISTRY — registry self-check skipped" >&2
+    elif ! grep -A3 "^  ${SERVICE}:" "$REGISTRY" 2>/dev/null | grep -q "port: $PORT$"; then
+        if [ "${FUSION_SKIP_REGISTRY_CHECK:-}" != "1" ]; then
+            echo "port $PORT for ${SERVICE} not registered in $REGISTRY — refusing to start" >&2
+            exit 1
+        fi
+        echo "warn: registry check bypassed (FUSION_SKIP_REGISTRY_CHECK=1)" >&2
+    fi
     rotate_log
     echo "Starting Fusion-Finance API on ${HOST}:${PORT}..."
     nohup "$PYTHON" -m uvicorn fusion_finance.api.app:app \
