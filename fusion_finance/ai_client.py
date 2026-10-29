@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fusion_core.config import load_settings, resolve_api_key
+from fusion_core.config import client_key, gateway_admin_key
 
 from .config import DEFAULT_MLX_BASE_URL, DEFAULT_MODEL
 from .exceptions import AIClientError
@@ -31,37 +30,24 @@ def _is_gateway_url(base_url: str) -> bool:
     return ":11432" in lowered or "gateway" in lowered
 
 
-def _gateway_admin_key() -> str:
-    key = os.environ.get("FUSION_GATEWAY_API_KEY", "")
-    if key:
-        return key
-    try:
-        cfg = load_settings()
-    except Exception as e:
-        logger.warning("load settings.json for gateway_admin_key failed: %s", e)
-        return ""
-    shell = cfg.get("shell", {})
-    if isinstance(shell, dict):
-        key = str(shell.get("gateway_admin_key", "") or "")
-        if key:
-            return key
-    return ""
-
-
 def _api_key_for(explicit: str = "", base_url: str = "") -> str:
     if explicit:
         return explicit
     if _is_gateway_url(base_url):
-        key = _gateway_admin_key()
+        try:
+            key = gateway_admin_key()
+        except Exception as e:
+            logger.warning("gateway_admin_key via fusion_core failed: %s", e)
+            key = ""
         if key:
             return key
         logger.warning(
-            "base_url looks like the gateway (%s) but no gateway key found; falling back to fusion-mlx key", base_url
+            "base_url looks like the gateway (%s) but no gateway key found; falling back to client key", base_url
         )
     try:
-        return resolve_api_key(env_var="FUSION_MLX_API_KEY")
+        return client_key()
     except Exception as e:
-        logger.warning("resolve_api_key via fusion_core failed: %s", e)
+        logger.warning("client_key via fusion_core failed: %s", e)
         return ""
 
 

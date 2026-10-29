@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 os.environ.setdefault("FUSION_FINANCE_DISABLE_AUTH", "1")
 os.environ.setdefault("FUSION_FINANCE_API_KEY", "")
 os.environ.setdefault("FUSION_FINANCE_HOST", "127.0.0.1")
 os.environ.setdefault("FUSION_FINANCE_DATA_DIR", str(os.path.join(os.path.dirname(__file__), "..", ".test_data")))
 os.environ.setdefault("FUSION_FINANCE_RATE_LIMIT", "1000000")
 
-import pytest
+# deterministic key resolution: strip host key-chain env so tests only see keys they set themselves
+for _var in ("FUSION_CLIENT_KEY", "FUSION_MLX_API_KEY", "MLX_API_KEY", "FUSION_GATEWAY_API_KEY"):
+    os.environ.pop(_var, None)
+os.environ.setdefault("FUSION_PROFILE", "dev")
 
 TEST_API_KEY = os.environ.get("FUSION_FINANCE_API_KEY", "")
 
