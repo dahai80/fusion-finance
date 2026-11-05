@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title }} · Fusion-Finance</title>
+    <link rel="stylesheet" href="/ui/static/app.css">
+</head>
+<body data-page="{{ page }}" data-api-key="{{ api_key }}">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="/ui">
+                <span class="brand-mark">FF</span>
+                <span class="brand-name">Fusion-Finance</span>
+                <span class="brand-version">v{{ version }}</span>
+            </a>
+            <nav class="nav">
+                {% for key, (label, path) in pages.items() %}
+                <a class="nav-link {{ 'active' if page == key }}" href="{{ path }}">{{ label }}</a>
+                {% endfor %}
+            </nav>
+        </div>
+    </header>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="footer">
+        <span>Local-first · 100% offline · powered by fusion-mlx</span>
+    </footer>
+    <div id="toast" class="toast hidden"></div>
+    <script src="/ui/static/app.js"></script>
+</body>
+</html>

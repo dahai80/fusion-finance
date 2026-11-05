@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Dashboard</h1>
+
+<section class="grid grid-3">
+    <div class="card">
+        <div class="card-head"><h2>Service</h2><span id="svc-badge" class="badge muted">checking</span></div>
+        <dl class="kv" id="svc-info"><dt>status</dt><dd>loading…</dd></dl>
+    </div>
+    <div class="card">
+        <div class="card-head"><h2>MLX Engine</h2><span id="mlx-badge" class="badge muted">checking</span></div>
+        <dl class="kv" id="mlx-info"><dt>status</dt><dd>loading…</dd></dl>
+    </div>
+    <div class="card">
+        <div class="card-head"><h2>Projects</h2><span id="proj-badge" class="badge muted">…</span></div>
+        <ul class="list" id="proj-list"><li>loading…</li></ul>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-head">
+        <h2>Market Overview</h2>
+        <div class="row gap-2">
+            <select id="screener-preset" class="input input-sm">
+                <option value="quality">quality</option>
+                <option value="value">value</option>
+                <option value="growth">growth</option>
+            </select>
+            <button id="screener-btn" class="btn btn-sm">Refresh</button>
+        </div>
+    </div>
+    <div class="table-wrap" id="screener-wrap"><p class="muted">loading…</p></div>
+</section>
+
+<section class="card">
+    <div class="card-head">
+        <h2>Quotes</h2>
+        <div class="row gap-2">
+            <select id="quotes-market" class="input input-sm">
+                <option value="A">A-share</option>
+                <option value="HK">HK</option>
+            </select>
+            <button id="quotes-btn" class="btn btn-sm">Refresh</button>
+        </div>
+    </div>
+    <div class="table-wrap" id="quotes-wrap"><p class="muted">loading…</p></div>
+</section>
+{% endblock %}

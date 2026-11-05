@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fusion_core.proc import set_process_title
 
 from .. import __version__
@@ -17,6 +18,8 @@ from ..exceptions import AIClientError, DataError, FinanceError, ModelError, Rep
 from .middleware import APIKeyMiddleware, AuditMiddleware, RateLimitMiddleware
 from .routes import audit, chart, copilot, dashboard, data, health, modeling, project, report, risk, statements, ws
 from .sse import router as sse_router
+from .web import _WEB_DIR
+from .web import router as web_router
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +101,8 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
     app.include_router(sse_router, prefix="/events", tags=["sse"])
     app.include_router(ws.router, prefix="/ws", tags=["websocket"])
+    app.include_router(web_router, tags=["web"])
+    app.mount("/ui/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="ui_static")
 
     return app
 

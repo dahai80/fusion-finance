@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Modeling</h1>
+
+<section class="grid grid-2">
+    <div class="card">
+        <div class="card-head"><h2>DCF — Pure Calculation</h2></div>
+        <form id="dcf-form" class="form">
+            <label class="field"><span>Company</span><input class="input" name="company" value="Apple" required></label>
+            <label class="field"><span>Revenue (comma-separated forecast)</span>
+                <input class="input" name="revenue" value="100,120,140,160,180" required></label>
+            <label class="field"><span>EBIT margin (comma-separated)</span>
+                <input class="input" name="ebit_margin" value="0.25,0.26,0.27,0.28,0.28"></label>
+            <div class="grid grid-3 gap-2">
+                <label class="field"><span>WACC</span><input class="input" name="wacc" value="0.10"></label>
+                <label class="field"><span>Terminal growth</span><input class="input" name="terminal_growth" value="0.03"></label>
+                <label class="field"><span>Tax rate</span><input class="input" name="tax_rate" value="0.25"></label>
+            </div>
+            <div class="grid grid-2 gap-2">
+                <label class="field"><span>Net debt</span><input class="input" name="net_debt" value="0"></label>
+                <label class="field"><span>Shares outstanding</span><input class="input" name="shares_outstanding" value="0"></label>
+            </div>
+            <button class="btn btn-primary" type="submit">Calculate DCF</button>
+        </form>
+    </div>
+    <div class="card">
+        <div class="card-head"><h2>Monte Carlo DCF</h2></div>
+        <form id="mc-form" class="form">
+            <label class="field"><span>Simulations (1–100000)</span>
+                <input class="input" name="simulations" type="number" min="1" max="100000" value="1000"></label>
+            <p class="muted">Uses the same assumptions as the DCF form on the left.</p>
+            <button class="btn" type="submit">Run Monte Carlo</button>
+        </form>
+        <hr class="divider">
+        <div class="card-head"><h2>Sensitivity Analysis</h2></div>
+        <p class="muted">WACC × terminal growth grid, same assumptions.</p>
+        <button id="sens-btn" class="btn">Run Sensitivity</button>
+    </div>
+</section>
+
+<section class="card hidden" id="result-card">
+    <div class="card-head"><h2 id="result-title">Result</h2></div>
+    <div id="result-body" class="table-wrap"></div>
+</section>
+{% endblock %}

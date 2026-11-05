@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Copilot</h1>
+
+<section class="card chat-card">
+    <div class="card-head">
+        <h2>AI Copilot</h2>
+        <span id="ws-badge" class="badge muted">disconnected</span>
+    </div>
+    <div id="chat-log" class="chat-log">
+        <div class="msg msg-system">Ask anything — valuation, risk, statements. Local model via fusion-mlx.</div>
+    </div>
+    <form id="chat-form" class="chat-form">
+        <input id="chat-input" class="input" placeholder="Type a message…" autocomplete="off" required>
+        <button class="btn btn-primary" type="submit" id="chat-send">Send</button>
+    </form>
+</section>
+{% endblock %}

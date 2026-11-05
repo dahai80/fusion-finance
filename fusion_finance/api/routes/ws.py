@@ -25,6 +25,10 @@ def _check_auth(websocket: WebSocket) -> bool:
         auth = websocket.headers.get("authorization", "")
         if auth.lower().startswith("bearer "):
             provided = auth[7:].strip()
+    if not provided:
+        # browsers cannot set custom headers on WebSocket; fall back to query param
+        # (audit middleware redacts api_key query values)
+        provided = websocket.query_params.get("api_key", "")
     return verify_api_key(provided)
 
 
