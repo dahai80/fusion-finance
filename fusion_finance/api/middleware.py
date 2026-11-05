@@ -65,7 +65,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    EXEMPT_PATHS = ("/api/v1", "/api/v1/ready", "/docs", "/openapi.json", "/redoc")
+    EXEMPT_PATHS = ("/api/v1", "/api/v1/ready", "/docs", "/openapi.json", "/redoc", "/ui", "/ui/")
 
     def __init__(self, app: Any, max_requests: int = 100, window_seconds: int = 60):
         super().__init__(app)
@@ -122,7 +122,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    EXEMPT_PATHS = ("/api/v1", "/api/v1/ready", "/docs", "/openapi.json", "/redoc")
+    EXEMPT_PATHS = ("/api/v1", "/api/v1/ready", "/docs", "/openapi.json", "/redoc", "/ui", "/ui/")
 
     def __init__(self, app: Any, api_key: str = ""):
         super().__init__(app)
@@ -133,7 +133,12 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
-        if path in self.EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
+        if (
+            path in self.EXEMPT_PATHS
+            or path.startswith("/docs")
+            or path.startswith("/redoc")
+            or path.startswith("/ui/")
+        ):
             return await call_next(request)
 
         if request.method == "OPTIONS":
