@@ -1,9 +1,26 @@
-<div align="center">
-  <h1>💰 Fusion-Finance</h1>
-  <p><strong>Local AI-powered financial analysis platform for macOS Apple Silicon</strong></p>
-  <p><em>100% offline, zero data upload, powered by fusion-mlx. The domestic alternative to Claude Financial.</em></p>
-  <p><a href="./README_CN.md">中文文档</a></p>
-</div>
+---
+doc_id: fusion-finance/readme
+product: fusion-finance
+class: app
+entry: service
+doc_type: readme
+title: { zh: "fusion-finance 说明", en: "fusion-finance readme" }
+audience: engineer
+status: draft
+version: 0.5.10
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README.md
+---
+
+# 💰 Fusion-Finance
+
+**Local AI-powered financial analysis platform for macOS Apple Silicon**
+
+*100% offline, zero data upload, powered by fusion-mlx. The domestic alternative to Claude Financial.*
+
+[中文文档](./README_CN.md)
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11%2B-blue" alt="Python">
@@ -391,9 +408,6 @@ Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
-<p align="center">
-  <strong>Fusion-Finance — Local AI Finance. Zero Upload, Full Compliance.</strong>
-</p>
-<p align="center">
-  <sub>Built with ❤️ and fusion-mlx</sub>
-</p>
+**Fusion-Finance — Local AI Finance. Zero Upload, Full Compliance.**
+
+Built with fusion-mlx

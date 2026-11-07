@@ -1,9 +1,26 @@
-<div align="center">
-  <h1>💰 Fusion-Finance</h1>
-  <p><strong>本地 AI 金融分析平台 — macOS Apple Silicon 原生</strong></p>
-  <p><em>100% 本地离线，数据不出境，基于 fusion-mlx。国内 Claude Financial 替代方案。</em></p>
-  <p><a href="./README.md">English</a></p>
-</div>
+---
+doc_id: fusion-finance/readme-cn
+product: fusion-finance
+class: app
+entry: service
+doc_type: readme
+title: { zh: "fusion-finance 说明（中文）", en: "fusion-finance readme (Chinese)" }
+audience: engineer
+status: draft
+version: 0.5.10
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README_CN.md
+---
+
+# 💰 Fusion-Finance
+
+**本地 AI 金融分析平台 — macOS Apple Silicon 原生**
+
+*100% 本地离线，数据不出境，基于 fusion-mlx。国内 Claude Financial 替代方案。*
+
+[English](./README.md)
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11%2B-blue" alt="Python">
@@ -391,9 +408,6 @@ Apache License 2.0. 详见 [LICENSE](LICENSE)。
 
 ---
 
-<p align="center">
-  <strong>Fusion-Finance — 本地 AI 金融，数据不出境，合规无忧。</strong>
-</p>
-<p align="center">
-  <sub>用 ❤️ 和 fusion-mlx 构建</sub>
-</p>
+**Fusion-Finance — 本地 AI 金融，数据不出境，合规无忧。**
+
+用 fusion-mlx 构建
