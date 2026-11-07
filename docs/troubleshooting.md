@@ -9,7 +9,7 @@ audience: engineer
 status: draft
 version: 0.5.10
 updated: 2026-11-07
-owner: @dahai
+owner: "@dahai"
 source_of_truth:
   - start.sh
   - fusion_finance/config.py
