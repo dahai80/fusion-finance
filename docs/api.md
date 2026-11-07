@@ -1,3 +1,19 @@
+---
+doc_id: fusion-finance/api-guide
+product: fusion-finance
+class: app
+entry: service
+doc_type: guide
+title: { zh: "fusion-finance Python/CLI API 指南", en: "fusion-finance python and cli api guide" }
+audience: engineer
+status: draft
+version: 0.5.10
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/api.md
+---
+
 # Fusion-Finance API Reference
 
 ## Core Modules
