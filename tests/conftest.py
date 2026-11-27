@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import os
+import shutil
 
 import pytest
 
@@ -16,6 +18,27 @@ for _var in ("FUSION_CLIENT_KEY", "FUSION_MLX_API_KEY", "MLX_API_KEY", "FUSION_G
 os.environ.setdefault("FUSION_PROFILE", "dev")
 
 TEST_API_KEY = os.environ.get("FUSION_FINANCE_API_KEY", "")
+
+logger = logging.getLogger(__name__)
+
+
+# purge test process data so it cannot pile up at the repo root (issue #34);
+# set FUSION_FINANCE_KEEP_TEST_DATA=1 to keep the last run for debugging
+@pytest.fixture(scope="session", autouse=True)
+def _purge_test_data():
+    data_dir = os.path.join(os.path.dirname(__file__), "..", ".test_data")
+
+    def _purge(reason: str) -> None:
+        if os.path.isdir(data_dir):
+            shutil.rmtree(data_dir, ignore_errors=True)
+            logger.info("purged %s (%s)", data_dir, reason)
+
+    _purge("session start")
+    yield
+    if os.environ.get("FUSION_FINANCE_KEEP_TEST_DATA", "").lower() in ("1", "true", "yes"):
+        logger.info("keeping %s (FUSION_FINANCE_KEEP_TEST_DATA set)", data_dir)
+    else:
+        _purge("session end")
 
 
 @pytest.fixture(autouse=True)
