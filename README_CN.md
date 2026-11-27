@@ -39,6 +39,8 @@ source_of_truth:
 
 **Fusion-Finance** 是一款本地 AI 金融分析平台，基于 `fusion-mlx` 构建，**100% 本地离线，数据不出境**，是国内环境下 Claude Financial 的合规替代方案。
 
+v0.5.12：**仓库卫生**（issue #34）— 清理历史运行堆积在仓库根目录的 170 个 `proj_*` 过程文件（约 680K）与 13M 的 `.test_data` 目录（约 2559 个文件）；`tests/conftest.py` 新增 session 级 autouse fixture，在 pytest 会话开始与结束时自动清理 `.test_data`，杜绝测试过程数据再次堆积，调试时可用 `FUSION_FINANCE_KEEP_TEST_DATA=1` 保留最后一次运行。共移除约 13.7M；测试基线不变（870 通过 + 1 跳过），ruff 干净。
+
 v0.5.11：**CI 效率改造**（issue #31，按 fusion#2 清单）— 两个 workflow 均新增 `concurrency` 分组并开启 `cancel-in-progress: true`（同分支被取代的运行直接取消而非排队）；`setup-python` 启用 pip 缓存，key 基于本仓 `pyproject.toml` + 内嵌 `fusion-core/pyproject.toml` 哈希；workflow 级 `paths-ignore`（`**.md` 与 `docs/**`）使纯文档变更跳过 lint/test，同时 `docs.yml` 仍会对这些 PR 校验文档契约。评估后跳过：测试分片（test job 仅约 73s，远低于约 5 分钟阈值）与夜间全量门禁（每 PR 已完整运行 871 测试即权威门禁）。热缓存路径耗时持平（lint 5s / test 73s，改造前 7s / 71s）；收益在于取消排队、冷缓存加速与纯文档 PR 跳过。
 
 v0.5.10：**Web UI**（issue #28）— API 的首个浏览器界面，由同一个 FastAPI 应用在 `/ui` 直接服务，零新增依赖、无构建步骤：服务端渲染 Jinja2 页面（`fusion_finance/api/web/`）+ 单一样式表 + 原生 JS 胶水层。四个页面：**Dashboard**（服务/MLX 状态、项目列表、筛选器市场概览、模拟行情）、**Modeling**（DCF 纯计算表单 + 蒙特卡洛 + WACC×增长率敏感性分析）、**Risk & Compliance**（蒙特卡洛 VaR、制裁名单筛查、预设压力场景）、**Copilot**（复用现有 `/ws/copilot` WebSocket 的流式聊天）。浏览器无法在 WebSocket 握手时设置自定义 header，因此 `/ws/*` 鉴权新增 `api_key` 查询参数回退（审计日志已脱敏）；`/ui` 与 `/ui/*` 豁免 API-key 与限流中间件，页面模板注入本地 API key 供一方 JS 调用 — 在默认仅回环绑定的前提下安全，`auth_safety_check` 对任何高危重绑仍会告警。870 测试通过 + 1 跳过，ruff 干净；实测页面渲染、静态资源、密钥注入及 WS 查询参数鉴权。
